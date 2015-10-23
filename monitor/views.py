@@ -13,6 +13,10 @@ import sys
 from subprocess import Popen,PIPE
 from collections import defaultdict
 from monitor.functions import client_pool_map
+#### Config
+# timeout for jobs (in days). marked as "OLD" if exceeded timeout.
+_timeout = 60
+
 #### Implement
 # if short term older than 4 weeks mark red
 # if long term older than 3 months mark red
@@ -69,7 +73,7 @@ def monitor(request):
             # grob aufrunden
             jobgigabytes = int(jobbytes/1000000000)
             current_time = datetime.datetime.now()
-            timeout_max = datetime.timedelta(days=60)
+            timeout_max = datetime.timedelta(days=_timeout)
             logger.debug( ( current_time - realendtime )  )
             logger.debug( timeout_max )
             if ( current_time - realendtime ) > timeout_max:

@@ -1,4 +1,17 @@
-Configuration
+#Installation
+The python web framework django is required. I run this web app in a virtualenv with 
+apache, but you can also run it without a virtualenv. 
+Check the provided apache example config out, which i setup for my virtualenv.
+
+If you decide to use virtualenv. Here's one info link:
+virtualenv: 
+https://www.jeffknupp.com/blog/2012/02/09/starting-a-django-project-the-right-way/
+
+Another requirement is psycopg2 (python postgresql wrapper).
+Install it in the virtualenv or systemwide with `pip3 install psycopg2`
+
+
+#Configuration
 The monitor requires you too outsource your jobdef and jobs files.
 specify the path jobdef path and the path where your jobs reside in monitor/functions.py
 
@@ -13,4 +26,5 @@ E.g. in  /etc/bareos/bareos-dir.conf you have:
 Then in monitor/functions.py add at the top:
 jobdefs_path = /etc/bareos/bareos-dir.d/jobs/jobdefs.conf
 jobs_path = /etc/bareos/bareos-dir.d/jobs/
+
 
