@@ -18,12 +18,12 @@ copy_dependency_dict:
 <h2>Bacula-monitor</h2>
 
 <div class="c_flex">
+{% comment %} We iterate the config pools for the client, that should be backuped and see if there actually were. {% endcomment %}
 {% for skey, svalue in jobs_should.items %}
 {% comment %} key is our client {% endcomment %}
 <section class="c">
 <h4>{{ skey }}</h4>
 <table>
-  {% comment %} iterating the value list here. {% endcomment %}
   <tr>
     <th>Pool</th>
     <th>Size (GB)</th>
@@ -32,58 +32,18 @@ copy_dependency_dict:
     <th>Files</th>
     <th>Timeout</th>
   </tr>
+  {% comment %} iterating the list of pools of the client here. {% endcomment %}
   {% for svalue2 in svalue %}
   <tr>
+    {% comment %} here we iterate over our actual jobs and do a if condition when we found the client job result in our config client.{% endcomment %}
     {% for jkey, jvalue in jobs.items %}
-      {% comment %} here we compare client. {% endcomment %}
       {% if skey == jkey %}
-        {% comment %} here we check if svalue2 (pool from should) is in jvalue (dict with pool-keys of client). {% endcomment %}
+        {% comment %} here we check if "pool from should exist (config)"(svalue2) is in jvalue (dict with pool-keys of client). {% endcomment %}
         {% if not svalue2 in jvalue %}
           <tr>
             <td style="color: red;">{{ svalue2 }}</td>
           </tr>
         {% else %}
-
-          {% for ckey, cvalue in copy_dep.items %}
-            {% if svalue2 == ckey %}
-              {% for cvalue2 in cvalue %}
-                {% if not cvalue2 in jvalue %}
-                  <tr>
-                    <td style="color: red;">{{ cvalue2 }}</td>
-                  </tr>
-
-                {% else %}
-                  <tr>
-                    <td style="color: green;">{{ cvalue2 }}</td>
-                    {% for jkey2, jvalue2 in jvalue.items %}
-                      {% comment %} (copy pools) here we compare pools. copy with should and then get right {% endcomment %}
-                      {% if jkey2 == cvalue2 %}
-                        {% for jvalue3 in jvalue2 %}
-                          {% if forloop.counter == 5 %}
-                            {% if jvalue3 == 1 %}
-                              <td style="color: yellow;">OLD</td>
-                            {% else %}
-                              <td style="color: green;">OK</td>
-                            {% endif %}
-                          {% else %}
-                            <td>{{ jvalue3 }}</td>
-                          {% endif %}
-                        {% endfor %}
-
-
-                      {% else %}
-
-
-                      {% endif %}
-                    {% endfor %}
-                  </tr>
-                {% endif %}
-              {% endfor %}
-
-            {% endif %}
-
-          {% endfor %}
-
           <tr>
             <td style="color: green;">{{ svalue2 }}</td>
             {% for jkey2, jvalue2 in jvalue.items %}

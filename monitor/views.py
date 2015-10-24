@@ -110,4 +110,6 @@ def monitor(request):
     for key, li in config_client_pool.items():
         config_client_pool[key] = sorted(li)
     config_client_pool = OrderedDict(sorted(config_client_pool.items()))
+    logger.debug('h')
+    logger.debug(config_client_pool)
     return render_to_response('monitor/index.html', {'jobs' : jobs, 'jobs_should': config_client_pool, 'copy_dep': config_copy_dep}, context_instance=RequestContext(request))
