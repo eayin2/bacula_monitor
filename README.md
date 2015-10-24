@@ -1,6 +1,6 @@
 # Bacula_monitor
 
-![Alt text](http://i.imgur.com/tcYrHaK.jpg "web-ui")
+![Alt text](http://i.imgur.com/fIYHoTIl.jpg "web-ui")
 
 ## Requirements:
 python3-Django >= 1.8.4 (opensuse's package name)
@@ -40,3 +40,7 @@ E.g. in  /etc/bacula/bacula-dir.conf you have:
 Then in monitor/functions.py add at the top:
 jobdefs_path = /etc/bacula/bacula-dir.d/jobs/jobdefs.conf
 jobs_path = /etc/bacula/bacula-dir.d/jobs/
+
+If you change configurations make sure to restart your webserver.
+
+
