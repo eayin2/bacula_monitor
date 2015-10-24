@@ -19,7 +19,6 @@ copy_dependency_dict:
 <body>
 <div class="content">
 <h2>Bacula-monitor</h2>
-<ul>
 
 <div class="c_flex">
 {% comment %} We iterate the config pools for the client, that should be backuped and see if there actually were. {% endcomment %}
@@ -45,8 +44,8 @@ copy_dependency_dict:
     <th>Pool</th>
     <th>Size (GB)</th>
     <th>Ended</th>
-    <th>Duration</th>
-    <th>Files</th>
+    <th>Duration (mins)</th>
+    <th>Files (#)</th>
     <th>Timeout</th>
   </tr>
   {% comment %} iterating the list of pools of the client here. {% endcomment %}

@@ -1,11 +1,11 @@
 body {
   background-color: black;
-  margin: 0 !important;
+  margin: 0;
   padding: 0 !important;
   font-family: "Roboto";
   font-style: normal;
   color: white;
-  font-size: 100%; }
+  font-size: 90%; }
 
 a {
   text-decoration: none;
@@ -13,53 +13,55 @@ a {
 
 h2 {
   font-size: 105%;
-  color: white;
-  margin-bottom: 20px; }
-
-h3 {
-  margin-left: 25px;
-  margin-bottom: 0px;
-  padding-bottom: 0;
-  font-size: 95%;
-  color: #e5e5e5; }
+  color: white;}
 
 .content {
-  width: 98%;
+  width: 99.6%;
   margin: 0 auto;
-  color: #b4b4b4;
-  clear: left; }
-  .content label {
-    display: block; }
+  color: #b4b4b4;}
 
 .content a {
   color: #b4b4b4;
   text-decoration: none; }
 .c_flex {
+  margin: 0 auto;
+  width: 100%;
   display: flex;
   flex-wrap: wrap; }
 
 .c {
   margin: 0;
   padding: 0;
-  padding-bottom: 1%;
-  width: 100%; }
+  padding-bottom: 0.001em; }
   @media only screen and (min-width: 3000px) {
     .c {
-      width: 25%; } }
+      flex: 1 1 23%; } }
   @media only screen and (min-width: 2560px) and (max-width: 2999px) {
     .c {
-      width: 33%; } }
-  @media only screen and (min-width: 1600px) and (max-width: 2560px) {
+      flex: 1 1 33%; } }
+  @media only screen and (min-width: 1750px) and (max-width: 2560px) {
     .c {
-      width: 33%; }
+      flex: 1 1 33%; }
+  @media only screen and (min-width: 1000px) and (max-width: 1749px) {
+    .c {
+      flex: 1 1 46%; }
   .c table {
-    margin-top: 1%;
+    width: 100%;
+    margin: 0 auto;
     text-align: center;
     color: white; }
+  .c th {
+    font-size: 90%;
+    padding-right: 10px; }
   .c td {
-    padding-bottom: 1%;
-    padding-right: 10px;
-    vertical-align: top; }
+    font-size: 80%;}
+  .c h4 {
+    margin-bottom: 0px;
+    text-align: center;
+    padding-bottom: 0;
+    font-size: 120%;}
+
+//    vertical-align: top; }
 
 li {
   display: inline-block;}
