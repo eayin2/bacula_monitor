@@ -55,6 +55,10 @@ def monitor(request):
                  FROM client c, pool p, LATERAL(SELECT * FROM job j WHERE j.clientid = c.clientid AND \
                  j.jobstatus='T' AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') AND p.poolid=j.poolid \
                  ORDER BY j.realendtime DESC LIMIT 2) j;")
+        cur.execute("SELECT c.name, p.name, j.jobbytes, j.realendtime, j.starttime, j.jobfiles \
+                 FROM client c, pool p, LATERAL(SELECT * FROM job j WHERE j.clientid = c.clientid AND \
+                 j.jobstatus='T' AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') AND p.poolid=j.poolid \
+                 ORDER BY j.realendtime DESC LIMIT 2) j;")
         tuples = cur.fetchall()
         jobs = defaultdict(dict)
         clients_pools_dict = defaultdict(list)
@@ -84,10 +88,10 @@ def monitor(request):
             clients_pools_dict[pool] = pool_list
             jobs[client] = dict(clients_pools_dict)
     except ValueError as err:
-        print(err)
-        print("none")
+        logger.debug(err)
+        logger.debug("Error in view.")
     # converting back to dict so template can print it
-    jobs = dict(jobs)
     logger.debug("now:")
     logger.debug(jobs)
+    jobs = dict(jobs)
     return render_to_response('monitor/index.html', {'jobs' : jobs, 'jobs_should': config_client_pool, 'copy_dep': config_copy_dep}, context_instance=RequestContext(request))

@@ -13,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 #### Config
-# path to the job configs
+# path to the job configs. I tested it with bareos, so i the bareos config path. For bacula put it in the approriate path.
 jobs_path = "/etc/bareos/bareos-dir.d/jobs"
 # file path to jobdefs.conf
 jobdefs_path = "/etc/bareos/bareos-dir.d/jobs/jobdefs.conf"
@@ -22,7 +22,7 @@ jobdefs_path = "/etc/bareos/bareos-dir.d/jobs/jobdefs.conf"
 def fill_pools_to_client(jobdef_name, value_list, jobs_dict, client_pool_dict, client=None):
     """ parses jobdefs.conf and returns values for given keys packed in a dictionary. """
     with open (jobdefs_path, "r") as myfile:
-        jobdefs_parsed = parse_bareos(myfile)
+        jobdefs_parsed = parse_bacula(myfile)
     value_dict = defaultdict()
     for dict in jobdefs_parsed:
         dict = {k.lower():v for k,v in dict.items()}
@@ -47,7 +47,7 @@ def fill_pools_to_client(jobdef_name, value_list, jobs_dict, client_pool_dict, c
 def jobdefs_values(jobdef_name, value_list):
     """ parses jobdefs.conf and returns values for given keys packed in a dictionary. """
     with open (jobdefs_path, "r") as myfile:
-        jobdefs_parsed = parse_bareos(myfile)
+        jobdefs_parsed = parse_bacula(myfile)
     value_dict = defaultdict()
     for dict in jobdefs_parsed:
         dict = {k.lower():v for k,v in dict.items()}
@@ -60,8 +60,8 @@ def jobdefs_values(jobdef_name, value_list):
                     print("jobdefs has dict[%s] neither." % value)
     return value_dict
 
-def parse_bareos(lines):
-    """ can parse bareos configs and returns a list of each config segment packed in one dictionary. """
+def parse_bacula(lines):
+    """ can parse bacula configs and returns a list of each config segment packed in one dictionary. """
     parsed = []
     obj = None
     for line in lines:
@@ -96,7 +96,7 @@ def parse_bareos(lines):
 
 
 def client_pool_map():
-    """ returns a dictionary of all pools that a client is associated to in the bareos jobs config."""
+    """ returns a dictionary of all pools that a client is associated to in the bacula jobs config."""
     files = []
 
     for root, dirnames, filenames in os.walk(jobs_path):
@@ -110,7 +110,7 @@ def client_pool_map():
     copy_dependency_dict = defaultdict(set)
     for file in files:
         with open (file, "r") as myfile:
-            parsed_conf = parse_bareos(myfile)
+            parsed_conf = parse_bacula(myfile)
         for d in parsed_conf:
             d = {k.lower():v for k,v in d.items()}
 
