@@ -19,7 +19,7 @@ jobs_path = "/etc/bareos/bareos-dir.d/jobs"
 jobdefs_path = "/etc/bareos/bareos-dir.d/jobs/jobdefs.conf"
 
 #### Functions
-def fill_pools_to_client(jobdef_name, value_list, jobs_dict, client_pool_dict, client=None):
+def fill_pools_to_client(jobdef_name, value_list, jobs_dict, config_client_pool, client=None):
     """ parses jobdefs.conf and returns values for given keys packed in a dictionary. """
     with open (jobdefs_path, "r") as myfile:
         jobdefs_parsed = parse_bacula(myfile)
@@ -33,16 +33,16 @@ def fill_pools_to_client(jobdef_name, value_list, jobs_dict, client_pool_dict, c
                         print(dict[value].replace("'", ""))
                         print(dict[value])
                         client = re.sub('["\']', '', client)
-                        client_pool_dict[ client ].add(dict[value].replace("'", ""))
+                        config_client_pool[ client ].add(dict[value].replace("'", ""))
                     else:
                         name= re.sub('[(){}<>]', '', name)
                         client = re.sub('["\']', '', dict["client"])
-                        client_pool_dict[ client ].add(dict[value].replace("'", ''))
+                        config_client_pool[ client ].add(dict[value].replace("'", ''))
 
                 except Exception as err:
                     print(err)
                     print("jobdefs has dict[%s] neither." % value)
-    return client_pool_dict
+    return config_client_pool
 
 def jobdefs_values(jobdef_name, value_list):
     """ parses jobdefs.conf and returns values for given keys packed in a dictionary. """
@@ -106,8 +106,8 @@ def client_pool_map():
                 continue
             files.append(os.path.join(root, filename))
 
-    client_pool_dict = defaultdict(set)
-    copy_dependency_dict = defaultdict(set)
+    config_client_pool = defaultdict(set)
+    config_copy_dep = defaultdict(set)
     for file in files:
         with open (file, "r") as myfile:
             parsed_conf = parse_bacula(myfile)
@@ -117,32 +117,33 @@ def client_pool_map():
             if "pool" in d and "client" in d:
                  print(d["client"])
                  print(d["pool"])
-                 print(client_pool_dict)
-                 client_pool_dict[d["client"]].add(d["pool"])
+                 print(config_client_pool)
+                 config_client_pool[d["client"]].add(d["pool"])
 
             elif "jobdefs" in d:
                 jobdef_name = d["jobdefs"].lower()
 
                 if "client" in d and not "pool" in d:
-                    client_pool_dict = fill_pools_to_client(jobdef_name, ["pool", "incremental backup pool", "full backup pool"], d, client_pool_dict, d["client"])
+                    config_client_pool = fill_pools_to_client(jobdef_name, ["pool", "incremental backup pool", "full backup pool"], d, config_client_pool, d["client"])
 
                 elif not "client" in d and "pool" in d:
 
                     # Copy Job
                     if "type" in d:
                         if d["type"].lower() == "copy":
-                            copy_dependency_dict[dict["pool"]].add(d["next pool"])
+                            config_copy_dep[dict["pool"]].add(d["next pool"])
 
                     elif jobdefs_values(jobdef_name, ['type'])["type"].lower() == "copy":
-                        copy_dependency_dict[d["pool"]].add(d["next pool"])
+                        config_copy_dep[d["pool"]].add(d["next pool"])
 
                     # Backup Job
                     else:
-                        client_pool_dict = fill_pools_to_client(jobdef_name, ["pool", "incremental backup pool", "full backup pool"], d, client_pool_dict)
+                        config_client_pool = fill_pools_to_client(jobdef_name, ["pool", "incremental backup pool", "full backup pool"], d, config_client_pool)
 
                 elif not "client" in d and not "pool" in d:
-                    client_pool_dict = fill_pools_to_client(jobdef_name, ["pool", "incremental backup pool", "full backup pool"], d, client_pool_dict)
+                    config_client_pool = fill_pools_to_client(jobdef_name, ["pool", "incremental backup pool", "full backup pool"], d, config_client_pool)
 
             else:
                 print("no jobdefs, pool and client info.")
-    return client_pool_dict, copy_dependency_dict
+    # don't sort the dictionaries here yet, because we still need the set() values.
+    return config_client_pool, config_copy_dep

@@ -11,7 +11,7 @@ import os
 import psycopg2
 import sys
 from subprocess import Popen,PIPE
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from monitor.functions import client_pool_map
 #### Config
 # timeout for jobs (in days). marked as "OLD" if exceeded timeout.
@@ -43,34 +43,38 @@ _timeout = 60
 
 def monitor(request):
     config_client_pool, config_copy_dep = client_pool_map()
-    config_client_pool = dict(config_client_pool)
     config_copy_dep = dict(config_copy_dep)
-    # import pdb
-    # pdb.set_trace()
     con = None
     try:
         con = psycopg2.connect(database='bareos', user='bareos', host='phserver01')
         cur = con.cursor()
         cur.execute("SELECT c.name, p.name, j.jobbytes, j.realendtime, j.starttime, j.jobfiles \
-                 FROM client c, pool p, LATERAL(SELECT * FROM job j WHERE j.clientid = c.clientid AND \
-                 j.jobstatus='T' AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') AND p.poolid=j.poolid \
-                 ORDER BY j.realendtime DESC LIMIT 2) j;")
-        cur.execute("SELECT c.name, p.name, j.jobbytes, j.realendtime, j.starttime, j.jobfiles \
-                 FROM client c, pool p, LATERAL(SELECT * FROM job j WHERE j.clientid = c.clientid AND \
-                 j.jobstatus='T' AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') AND p.poolid=j.poolid \
-                 ORDER BY j.realendtime DESC LIMIT 2) j;")
+                     FROM client c \
+                     LEFT JOIN LATERAL ( \
+                       SELECT DISTINCT ON (j.poolid, j.clientid) j.jobbytes, j.realendtime, j.starttime, j.jobfiles, j.poolid \
+                       FROM job j \
+                       WHERE j.clientid = c.clientid AND j.jobstatus='T' AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') \
+                       ORDER BY j.clientid, j.poolid, j.realendtime DESC \
+                     ) j ON TRUE \
+                     LEFT JOIN pool p ON p.poolid = j.poolid;")
+
         tuples = cur.fetchall()
         jobs = defaultdict(dict)
+        # jobs dict looks like: { client1 : { pool1 : [ jobbytes, realendtime, .. ], pool2 : [..] }, client2: { ... } }
         clients_pools_dict = defaultdict(list)
-        for tuple in tuples:
-            client = tuple[0]
-            pool = tuple[1]
+        for t in tuples:
+            logger.debug(t)
+            client = t[0]
+            pool = t[1]
             pool_sub_dict = defaultdict(list)
             pool_list = list()
-            jobbytes = tuple[2]
-            realendtime = tuple[3]
-            starttime = tuple[4]
-            duration = realendtime - starttime
+            jobbytes = t[2]
+            realendtime = t[3]
+            starttime = t[4]
+            try:
+                duration = realendtime - starttime
+            except:
+                continue
             seconds = duration.total_seconds()
             minutes = int((seconds % 3600) // 60)
             endtime = realendtime.strftime("%d.%m.%y %H:%M")
@@ -84,14 +88,26 @@ def monitor(request):
                 timeout = 1
             else:
                 timeout = 0
-            pool_list = [jobgigabytes, endtime, minutes, tuple[5], timeout]
-            clients_pools_dict[pool] = pool_list
-            jobs[client] = dict(clients_pools_dict)
+            pool_list = [jobgigabytes, endtime, minutes, t[5], timeout]
+            jobs[client][pool] = pool_list
     except ValueError as err:
         logger.debug(err)
         logger.debug("Error in view.")
     # converting back to dict so template can print it
-    logger.debug("now:")
-    logger.debug(jobs)
     jobs = dict(jobs)
+    jobs = OrderedDict(sorted(jobs.items()))
+    # here we sort our copy pool dependency dictionary before filling it into the config_client_pool dictionary.
+    for key, li in config_copy_dep.items():
+        config_copy_dep[key] = sorted(li)
+    # here we add copy pools that are associated to a pool to the client's pool dictionary.
+    config_copy_dep = OrderedDict(sorted(config_copy_dep.items()))
+    for cpk, cpv in config_client_pool.items():
+        for cdk, cdv in config_copy_dep.items():
+            if cdk in cpv:
+                for cdv2 in cdv:
+                    config_client_pool[cpk].add(cdv2)
+    # Sorting in the end so that set() doesnt get converted to list()
+    for key, li in config_client_pool.items():
+        config_client_pool[key] = sorted(li)
+    config_client_pool = OrderedDict(sorted(config_client_pool.items()))
     return render_to_response('monitor/index.html', {'jobs' : jobs, 'jobs_should': config_client_pool, 'copy_dep': config_copy_dep}, context_instance=RequestContext(request))
