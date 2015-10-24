@@ -48,16 +48,16 @@ def monitor(request):
     try:
         con = psycopg2.connect(database='bareos', user='bareos', host='phserver01')
         cur = con.cursor()
+        # Notice that jobstatus 'W' means terminated successful but with warnings in bareos. Iam not sure if bacula has the same jobstatus code too. bacula has T (successful) though.
         cur.execute("SELECT c.name, p.name, j.jobbytes, j.realendtime, j.starttime, j.jobfiles \
                      FROM client c \
                      LEFT JOIN LATERAL ( \
-                       SELECT DISTINCT ON (j.poolid, j.clientid) j.jobbytes, j.realendtime, j.starttime, j.jobfiles, j.poolid \
+                       SELECT DISTINCT ON (j.poolid) j.jobbytes, j.realendtime, j.poolid,  j.starttime, j.jobfiles \
                        FROM job j \
-                       WHERE j.clientid = c.clientid AND j.jobstatus='T' AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') \
-                       ORDER BY j.clientid, j.poolid, j.realendtime DESC \
+                       WHERE j.clientid = c.clientid  AND j.jobstatus IN ('T', 'W') AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') \
+                       ORDER BY j.poolid, j.realendtime DESC \
                      ) j ON TRUE \
                      LEFT JOIN pool p ON p.poolid = j.poolid;")
-
         tuples = cur.fetchall()
         jobs = defaultdict(dict)
         # jobs dict looks like: { client1 : { pool1 : [ jobbytes, realendtime, .. ], pool2 : [..] }, client2: { ... } }
