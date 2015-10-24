@@ -5,7 +5,7 @@ body {
   font-family: "Roboto";
   font-style: normal;
   color: white;
-  font-size: 90%; }
+  font-size: 95%; }
 
 a {
   text-decoration: none;
@@ -35,39 +35,43 @@ h2 {
   padding-bottom: 0.001em; }
   @media only screen and (min-width: 3000px) {
     .c {
+      max-width: 23%;
       flex: 1 1 23%; } }
   @media only screen and (min-width: 2560px) and (max-width: 2999px) {
     .c {
+      max-width: 33%;
       flex: 1 1 33%; } }
   @media only screen and (min-width: 1750px) and (max-width: 2560px) {
     .c {
-      flex: 1 1 33%; }
+      max-width: 33%;
+      flex: 1 1 33%; } }
   @media only screen and (min-width: 1000px) and (max-width: 1749px) {
     .c {
-      flex: 1 1 46%; }
+      max-width: 49%;
+      flex: 1 1 49%; } }
   .c table {
     width: 100%;
     margin: 0 auto;
-    text-align: center;
     color: white; }
   .c th {
     font-size: 90%;
+    text-align: center;
     padding-right: 10px; }
   .c td {
-    font-size: 80%;}
+    text-align: center;
+    vertical-align: middle;
+    font-size: 90%;}
+
+  .c td > span {
+    margin: 0 auto;
+    text-align: center;}
   .c h4 {
     margin-bottom: 0px;
     text-align: center;
     padding-bottom: 0;
     font-size: 120%;}
 
-//    vertical-align: top; }
-
-li {
-  display: inline-block;}
 .up {
-  //background-color: #006400;
   color: green;}
 .down {
-//  background-color: darkred;
   color: red;}
