@@ -15,11 +15,12 @@ from collections import defaultdict, OrderedDict
 from monitor.functions import client_pool_map
 #### Config
 # timeout for jobs (in days). marked as "OLD" if exceeded timeout.
-_timeout = 60
-
-#### Implement
-# if short term older than 4 weeks mark red
-# if long term older than 3 months mark red
+#_timeout = 60
+# format: days : [pool_name1, ...]
+_timeouts = { 90 : [ "Full-LT", "Incremental-LT"],
+              30 : [ "Full-ST", "Incremental-ST"],
+             120 : [ "Full-LT-Copies-01", "Incremental-LT-Copies-01"],
+             150 : [ "Full-LT-Copies-02", "Incremental-LT-Copies-02"] }
 
 #### Developer-Info
 # Pools:
@@ -81,13 +82,22 @@ def monitor(request):
             # grob aufrunden
             jobgigabytes = int(jobbytes/1000000000)
             current_time = datetime.datetime.now()
-            timeout_max = datetime.timedelta(days=_timeout)
-            logger.debug( ( current_time - realendtime )  )
-            logger.debug( timeout_max )
-            if ( current_time - realendtime ) > timeout_max:
-                timeout = 1
-            else:
-                timeout = 0
+            if isinstance(_timeouts, int):
+                timeout_max = datetime.timedelta(days=_timeouts)
+                if ( current_time - realendtime ) > timeout_max:
+                    timeout = 1
+                else:
+                    timeout = 0
+            elif isinstance(_timeouts, dict):
+                for tk, tv in _timeouts.items():
+                    # checking if pool is in tv (list of pools from _timeouts)
+                    if pool in tv:
+                        timeout_max = datetime.timedelta(days=tk)
+                        if ( current_time - realendtime ) > timeout_max:
+                            timeout = 1
+                        else:
+                            timeout = 0
+                        break
             pool_list = [jobgigabytes, endtime, minutes, t[5], timeout]
             jobs[client][pool] = pool_list
     except ValueError as err:
