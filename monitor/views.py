@@ -12,15 +12,17 @@ import psycopg2
 import sys
 from subprocess import Popen,PIPE
 from collections import defaultdict, OrderedDict
-from monitor.functions import client_pool_map
+from monitor.functions import client_pool_map, host_up
 #### Config
 # timeout for jobs (in days). marked as "OLD" if exceeded timeout.
 #_timeout = 60
 # format: days : [pool_name1, ...]
 _timeouts = { 90 : [ "Full-LT", "Incremental-LT"],
               30 : [ "Full-ST", "Incremental-ST"],
-             120 : [ "Full-LT-Copies-01", "Incremental-LT-Copies-01"],
+              60 : [ "Full-LT-Copies-01", "Incremental-LT-Copies-01"],
              150 : [ "Full-LT-Copies-02", "Incremental-LT-Copies-02"] }
+              # note for myself: i set Copies-01 to 60 days, so i can easier see if i can do a disaster Copie-02 backup
+              # from relatively new Copies.
 
 #### Developer-Info
 # Pools:
@@ -121,5 +123,8 @@ def monitor(request):
         config_client_pool[key] = sorted(li)
     config_client_pool = OrderedDict(sorted(config_client_pool.items()))
     logger.debug('h')
-    logger.debug(config_client_pool)
-    return render_to_response('monitor/index.html', {'jobs' : jobs, 'jobs_should': config_client_pool, 'copy_dep': config_copy_dep}, context_instance=RequestContext(request))
+    # converting back dict from defaultdict, so django template can read it.
+    hosts = dict(host_up())
+    logger.debug(hosts)
+    return render_to_response('monitor/index.html', {'jobs' : jobs, 'jobs_should': config_client_pool,
+                              'copy_dep': config_copy_dep, 'hosts' : hosts }, context_instance=RequestContext(request))

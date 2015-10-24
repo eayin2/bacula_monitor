@@ -6,6 +6,9 @@ client_pool_dict:
   '"phlap01linw-fd"': {'Incremental-ST', 'Incremental-LT', 'Full-ST', 'Full-LT'}}
 copy_dependency_dict:
 {'Incremental-LT': {'Incremental-LT-Copies-01', 'Incremental-LT-Copies-02'}, 'Full-LT': {'Full-LT-Copies-02', 'Full-LT-Copies-01'}}
+
+
+    <li><span class="up">{{ hkey }}</span></li>
 {% endcomment %}
 
 <html>
@@ -16,13 +19,27 @@ copy_dependency_dict:
 <body>
 <div class="content">
 <h2>Bacula-monitor</h2>
+<ul>
 
 <div class="c_flex">
 {% comment %} We iterate the config pools for the client, that should be backuped and see if there actually were. {% endcomment %}
+
 {% for skey, svalue in jobs_should.items %}
 {% comment %} key is our client {% endcomment %}
 <section class="c">
-<h4>{{ skey }}</h4>
+
+  {% for hkey, hvalue in hosts.items %}
+  {% if skey == hkey %}
+    {% for el in hvalue|slice:"1:" %}
+      {% if el == 1 %}
+        <h4 class="up">{{ skey }}</h4>
+      {% elif el == 0 %}
+        <h4 class="down">{{ skey }}</h4>
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+  {% endfor %}
+
 <table>
   <tr>
     <th>Pool</th>

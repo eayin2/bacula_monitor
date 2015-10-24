@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 jobs_path = "/etc/bareos/bareos-dir.d/jobs"
 # file path to jobdefs.conf
 jobdefs_path = "/etc/bareos/bareos-dir.d/jobs/jobdefs.conf"
+# Path to your client config.
+client_config = "/etc/bareos/bareos-dir.d/clients.conf"
 
 #### Functions
 def fill_pools_to_client(jobdef_name, value_list, jobs_dict, config_client_pool, client=None):
@@ -147,3 +149,37 @@ def client_pool_map():
                 print("no jobdefs, pool and client info.")
     # don't sort the dictionaries here yet, because we still need the set() values.
     return config_client_pool, config_copy_dep
+
+def hosts():
+    """Parses config and returns all clients and associated hostnames."""
+    with open (client_config, "r") as myfile:
+        client_parsed = parse_bacula(myfile)
+    # For dictionaries in list of dict.
+    _hosts = defaultdict(set)
+    for d in client_parsed:
+        # Making sure we got the right config segment.
+        if d["thing"].lower() == "client":
+            for dk, dv in d.items():
+                if dk.lower() == "name":
+                    name = dv
+                elif dk.lower() == "address":
+                    address = dv
+            _hosts[ name ].add( address )
+    return _hosts
+
+def host_up():
+    """Checks if 9102 is open and returns dictionary of available hosts."""
+    # bacula requires port 9102 be opened on the file daemon.
+    _hosts = hosts()
+    for hk, hv in _hosts.items():
+        p2 = Popen([ "/usr/bin/netcat", "-z", "-v", "-w", "2", list(hv)[0], "9102" ], stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        out, err = p2.communicate()
+        if "succeeded" in err:
+            print('y')
+            _hosts[ hk ].add(1)
+        else:
+            print('n')
+            _hosts[ hk ].add(0)
+    return _hosts
+print(host_up())
+

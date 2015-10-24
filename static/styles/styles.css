@@ -61,3 +61,11 @@ h3 {
     padding-right: 10px;
     vertical-align: top; }
 
+li {
+  display: inline-block;}
+.up {
+  //background-color: #006400;
+  color: green;}
+.down {
+//  background-color: darkred;
+  color: red;}

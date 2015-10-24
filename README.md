@@ -40,7 +40,10 @@ E.g. in  /etc/bacula/bacula-dir.conf you have:
 Then in monitor/functions.py add at the top:
 jobdefs_path = /etc/bacula/bacula-dir.d/jobs/jobdefs.conf
 jobs_path = /etc/bacula/bacula-dir.d/jobs/
+client_config = "/etc/bareos/bacula-dir.d/clients.conf"
 
-If you change configurations make sure to restart your webserver.
+
+
+-> If you change configurations make sure to restart your webserver.
 
 
