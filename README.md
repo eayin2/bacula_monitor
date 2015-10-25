@@ -46,4 +46,6 @@ client_config = "/etc/bareos/bacula-dir.d/clients.conf"
 
 -> If you change configurations make sure to restart your webserver.
 
-
+## Notice
+bacula-monitor displays the latest jobs for each client's pool. this implies that when you have multiple filesets
+for one client-pool, that then only the most recent job is displayed, so filesets are not differentiated (yet?).

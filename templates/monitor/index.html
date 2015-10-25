@@ -1,15 +1,7 @@
-{% comment %} Example dictionaries:
-{ phlap01linw-fd : { Full-LT-Copies-02: [18, '22.05.15 02:33', 21, 255493], Full-LT: [18, '22.03.15 01:10', 51, 26593], } }
-client_pool_dict:
-{'"phlap01winw-fd"': {'Incremental-ST', 'Incremental-LT', 'Full-ST', 'Full-LT'},
-  'phserver01-fd': {'Incremental-ST', 'Full-ST'},
-  '"phlap01linw-fd"': {'Incremental-ST', 'Incremental-LT', 'Full-ST', 'Full-LT'}}
-copy_dependency_dict:
-{'Incremental-LT': {'Incremental-LT-Copies-01', 'Incremental-LT-Copies-02'}, 'Full-LT': {'Full-LT-Copies-02', 'Full-LT-Copies-01'}}
-
-
-    <li><span class="up">{{ hkey }}</span></li>
-{% endcomment %}
+{% comment %} { phlap01linw-fd : { Full-LT-Copies-02: [18, '22.05.15 02:33', 21, 255493], Full-LT: [18, '22.03.15 01:10', 51, 26593], } }
+               client_pool_dict: {'"phlap01winw-fd"': {'Incremental-ST', 'Incremental-LT', 'Full-ST', 'Full-LT'}, 'phserver01-fd': {'Incremental-ST', 'Full-ST'},
+                                  '"phlap01linw-fd"': {'Incremental-ST', 'Incremental-LT', 'Full-ST', 'Full-LT'}}
+           copy_dependency_dict: {'Incremental-LT': {'Incremental-LT-Copies-01', 'Incremental-LT-Copies-02'}, 'Full-LT': {'Full-LT-Copies-02', 'Full-LT-Copies-01'}} {% endcomment %}
 
 <html>
   <head>
@@ -18,87 +10,72 @@ copy_dependency_dict:
   </head>
 <body>
 <div class="content">
-<div class="header">
-  <h2>Bacula-monitor</h2>
-  <ul>
-    <li>Pools:</li>
-    <li><span class="green">OK</span></li>
-    <li><span class="yellow">OLD</span></li>
-    <li><span class="red">MISSING</span></li>
-  </ul>
-  <ul>
-    <li>Client:</li>
-    <li><span class="green">UP</span></li>
-    <li><span class="red">DOWN</span></li>
-  </ul>
-</div>
-<div class="c_flex">
-{% comment %} We iterate the config pools for the client, that should be backuped and see if there actually were. {% endcomment %}
+  <div class="header">
+    <h2>Bacula-monitor</h2>
+    <ul>
+      <li>Pools:</li>
+      <li><span class="green">OK</span></li>
+      <li><span class="yellow">OLD</span></li>
+      <li><span class="red">MISSING</span></li>
+    </ul>
+    <ul>
+      <li>Client:</li>
+      <li><span class="green">UP</span></li>
+      <li><span class="red">DOWN</span></li>
+    </ul>
+  </div>
 
-{% for skey, svalue in jobs_should.items %}
-{% comment %} key is our client {% endcomment %}
-<section class="c">
-
-  {% for hkey, hvalue in hosts.items %}
-  {% if skey == hkey %}
-    {% for el in hvalue|slice:"1:" %}
+  <div class="c_flex">
+  {% for jck, jcv in jobs.items %}                  {% comment %} for job_client_key/val in jobs {% endcomment %}
+  {% for jfk, jfv in jcv.items %}                   {% comment %} for job_fileset_key/val in job_client_val.
+                                                                  Needs to be up here, because we want each client_pool_fileset in a seperate section. {% endcomment %}
+    <section class="c">
+      {% for hkey, hvalue in hosts.items %}         {% comment %} for host_key/val in hosts {% endcomment %}
+      {% if jck == hkey %}
+      {% for el in hvalue|slice:"1:" %}
       {% if el == 1 %}
-        <h4 class="green">{{ skey }}</h4>
+      <h4 class="green">{{ jck }} - {{ jfk }}</h4>
       {% elif el == 0 %}
-        <h4 class="red">{{ skey }}</h4>
+      <h4 class="red">{{ jck }} - {{ jfk }}</h4>
       {% endif %}
-    {% endfor %}
-  {% endif %}
-  {% endfor %}
-
-<table>
-  <tr>
-    <th>Pool</th>
-    <th>Size (GB)</th>
-    <th>Ended</th>
-    <th>Duration (mins)</th>
-    <th>Files (#)</th>
-  </tr>
-  {% comment %} iterating the list of pools of the client here. {% endcomment %}
-  {% for svalue2 in svalue %}
-  <tr>
-    {% comment %} here we iterate over our actual jobs and do a if condition when we found the client job result in our config client.{% endcomment %}
-    {% for jkey, jvalue in jobs.items %}
-      {% if skey == jkey %}
-        {% comment %} here we check if "pool from should exist (config)"(svalue2) is in jvalue (dict with pool-keys of client). {% endcomment %}
-        {% if not svalue2 in jvalue %}
-          <tr>
-            <td><span class="red">{{ svalue2 }}</span></td>
-          </tr>
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+      <table>
+        <tr>
+          <th>Pool</th>
+          <th>Size (GB)</th>
+          <th>Ended</th>
+          <th>Duration (mins)</th>
+          <th>Files (#)</th>
+        </tr>
+        {% for jpk, jpv in jfv.items %}             {% comment %} for job_pool_key/val in job_fileset_val {% endcomment %}
+        {% if jpv == 0 %}
+        <tr>
+          <td><span class="red">{{ jpk }}</span></td>
+        </tr>
         {% else %}
-          <tr>
-          {% for jkey2, jvalue2 in jvalue.items %}
-            {% comment %} here we compare pools. {% endcomment %}
-            {% if svalue2 == jkey2 %}
-              {% if jvalue2.4 == 1 %}
-                <td><span class="yellow">{{ svalue2 }}</td>
-              {% elif jvalue2.4 == 0 %}
-                <td><span class="green">{{ svalue2 }}</td>
-              {% endif %}
-              {% for jvalue3 in jvalue2 %}
-                {% if forloop.counter == 5 %}
-                {% else %}
-                  <td><span>{{ jvalue3 }}</span></td>
-                {% endif %}
-              {% endfor %}
-            {% endif %}
+        <tr>
+          {% if jpv.4 == 1 %}
+          <td><span class="yellow">{{ jpk }}</td>
+          {% elif jpv.4 == 0 %}
+          <td><span class="green">{{ jpk }}</td>
+          {% endif %}
+          {% for jpe in jpv %}
+          {% if forloop.counter == 5 %}
+          {% else %}
+          <td><span>{{ jpe }}</span></td>
+          {% endif %}
           {% endfor %}
-          </tr>
+        </tr>
         {% endif %}
-      {% endif %}
-    {% endfor %} {% comment %} endfor of jobs.items  {% endcomment %}
-  </tr>
-  {% endfor %} {% comment %} endfor of svalue  {% endcomment %}
-</table>
-</section>
-{% endfor %}  {% comment %} endfor of jobs_should.items  {% endcomment %}
-</div>
+        {% endfor %}
+      </table>
 
-</div>
+    </section>
+  {% endfor %}  {% comment %}  {% for jfk, jfv in jobs.items %} {% endcomment %}
+  {% endfor %} {% comment %} {% for jck, jcv in jobs.items %} {% endcomment %}
+  </div> <!-- <div class="c_flex"> -->
+</div> <!-- content -->
 </body>
 </html>

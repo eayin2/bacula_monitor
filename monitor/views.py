@@ -44,6 +44,11 @@ _timeouts = { 90 : [ "Full-LT", "Incremental-LT"],
 # - no need to show 'T' for successful job, because only T is retrieved.
 # - no need to show/select full or inc type either, bcs pool name implies it too.
 
+def default_to_regular(d):
+    if isinstance(d, defaultdict):
+        d = {k: default_to_regular(v) for k, v in d.items()}
+    return d
+
 def monitor(request):
     config_client_pool, config_copy_dep = client_pool_map()
     config_copy_dep = dict(config_copy_dep)
@@ -52,22 +57,26 @@ def monitor(request):
         con = psycopg2.connect(database='bareos', user='bareos', host='phserver01')
         cur = con.cursor()
         # Notice that jobstatus 'W' means terminated successful but with warnings in bareos. Iam not sure if bacula has the same jobstatus code too. bacula has T (successful) though.
-        cur.execute("SELECT c.name, p.name, j.jobbytes, j.realendtime, j.starttime, j.jobfiles \
-                     FROM client c \
-                     LEFT JOIN LATERAL ( \
-                       SELECT DISTINCT ON (j.poolid) j.jobbytes, j.realendtime, j.poolid,  j.starttime, j.jobfiles \
-                       FROM job j \
-                       WHERE j.clientid = c.clientid  AND j.jobstatus IN ('T', 'W') AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') \
-                       ORDER BY j.poolid, j.realendtime DESC \
-                     ) j ON TRUE \
-                     LEFT JOIN pool p ON p.poolid = j.poolid;")
+        cur.execute("\
+SELECT c.name, p.name, j.jobbytes, j.realendtime, j.starttime, j.jobfiles, f.fileset \
+FROM client c \
+LEFT JOIN ( \
+  SELECT DISTINCT ON (j.clientid, j.poolid, j.filesetid) \
+    j.jobbytes, j.realendtime, j.clientid, j.poolid, j.starttime, j.jobfiles, j.type, j.level, j.jobstatus, j.filesetid \
+  FROM job j \
+  WHERE j.jobstatus IN ('T', 'W') AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') \
+  ORDER BY j.clientid, j.poolid, j.filesetid, j.realendtime DESC \
+) j ON j.clientid = c.clientid \
+LEFT JOIN pool p ON p.poolid = j.poolid \
+LEFT JOIN fileset f ON f.filesetid = j.filesetid;")
+
         tuples = cur.fetchall()
-        jobs = defaultdict(dict)
+        jobs = defaultdict(lambda: defaultdict(defaultdict))
         # jobs dict looks like: { client1 : { pool1 : [ jobbytes, realendtime, .. ], pool2 : [..] }, client2: { ... } }
         clients_pools_dict = defaultdict(list)
         for t in tuples:
-            logger.debug(t)
             client = t[0]
+            fileset = t[6]
             pool = t[1]
             pool_sub_dict = defaultdict(list)
             pool_list = list()
@@ -101,17 +110,14 @@ def monitor(request):
                             timeout = 0
                         break
             pool_list = [jobgigabytes, endtime, minutes, t[5], timeout]
-            jobs[client][pool] = pool_list
+            jobs[client][fileset][pool] = pool_list
     except ValueError as err:
         logger.debug(err)
         logger.debug("Error in view.")
-    # converting back to dict so template can print it
-    jobs = dict(jobs)
-    jobs = OrderedDict(sorted(jobs.items()))
-    # here we sort our copy pool dependency dictionary before filling it into the config_client_pool dictionary.
+    # here we sort our copy pool dependency dictionary before filling it into the client_pool dictionary
     for key, li in config_copy_dep.items():
         config_copy_dep[key] = sorted(li)
-    # here we add copy pools that are associated to a pool to the client's pool dictionary.
+    # here we add copy pools that are associated to a pool to the config client's pool dictionary (aka jobs_should).
     config_copy_dep = OrderedDict(sorted(config_copy_dep.items()))
     for cpk, cpv in config_client_pool.items():
         for cdk, cdv in config_copy_dep.items():
@@ -122,9 +128,35 @@ def monitor(request):
     for key, li in config_client_pool.items():
         config_client_pool[key] = sorted(li)
     config_client_pool = OrderedDict(sorted(config_client_pool.items()))
-    logger.debug('h')
-    # converting back dict from defaultdict, so django template can read it.
-    hosts = dict(host_up())
-    logger.debug(hosts)
-    return render_to_response('monitor/index.html', {'jobs' : jobs, 'jobs_should': config_client_pool,
-                              'copy_dep': config_copy_dep, 'hosts' : hosts }, context_instance=RequestContext(request))
+    hosts = dict(host_up())  # (5)
+    for jck, jcv in jobs.items(): # (4)
+        for cck, ccv in config_client_pool.items():  # config_client_key/val
+            if jck == cck: # (7)
+                for jfk, jfv in jcv.items():
+                    logger.debug(jfv)
+                    for cce in ccv:  # (1)
+                        if cce in jfv: # (2)
+                            pass
+                        else:
+                            jobs[jck][jfk][cce] = 0 # (6)
+    jobs = default_to_regular(jobs)  # (5)
+#    for jck, jcv in jobs.items():
+ #       for jfk, jfv in jcv.items():
+  #          jobs[jfk] = sorted(jfv)
+    logger.debug(jobs)
+    for jck, jcv in jobs.items():
+        for jfk, jfv in jcv.items():
+            jobs[jck][jfk] = OrderedDict( sorted( jobs[jck][jfk].items() ) )
+    jobs = OrderedDict( sorted( jobs.items() ) )  # (3)
+    return render_to_response('monitor/index.html', {'jobs' : jobs, 'hosts' : hosts }, context_instance=RequestContext(request))
+
+
+# Notes:
+# (1) ccv looks as such: ['Full-LT', 'Full-LT-Copies-01', 'Full-LT-Copies-02', 'Incremental-LT', 'Incremental-LT-Copies-01', 'Incremental-LT-Copies-02']
+# (2) jfv looks like: defaultdict(None, {'Full-ST': [181, '03.10.15 16:30', 30, 116172, 0], 'Incremental-ST': [2, '24.10.15 18:19', 0, 78, 0]})
+# (3) a dictionary will always return keys/values in random order, that's why we have to use an "OrderedDict"
+# (4) comparing config_client_pool with jobs dictionary in this view instead of in the template, that keeps the template cleaner and in general easier to write.
+# (5) converting back to dict so template can print it
+# (6) set it to 0, not sure if it cascades with None
+# (7) if job client key (is) == config client key (should)
+
