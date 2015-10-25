@@ -32,8 +32,7 @@ h2 {
 .c {
   margin: 0;
   padding: 0;
-    border: 1px dashed grey;
-  padding-bottom: 0.001em; }
+  border: 1px dashed grey;}
   @media only screen and (min-width: 3000px) {
     .c {
       max-width: 23%;
@@ -67,8 +66,9 @@ h2 {
     margin: 0 auto;
     text-align: center;}
   .c h4 {
-    margin-bottom: 0px;
     text-align: center;
+    margin: 0;
+    padding: 0;
     padding-bottom: 0;
     font-size: 120%;}
 
