@@ -18,20 +18,8 @@ copy_dependency_dict:
   </head>
 <body>
 <div class="content">
-<div class="header">
-  <h2>Bacula-monitor</h2>
-  <ul>
-    <li>Pools:</li>
-    <li><span class="green">OK</span></li>
-    <li><span class="yellow">OLD</span></li>
-    <li><span class="red">MISSING</span></li>
-  </ul>
-  <ul>
-    <li>Client:</li>
-    <li><span class="green">UP</span></li>
-    <li><span class="red">DOWN</span></li>
-  </ul>
-</div>
+<h2>Bacula-monitor</h2>
+
 <div class="c_flex">
 {% comment %} We iterate the config pools for the client, that should be backuped and see if there actually were. {% endcomment %}
 
@@ -43,9 +31,9 @@ copy_dependency_dict:
   {% if skey == hkey %}
     {% for el in hvalue|slice:"1:" %}
       {% if el == 1 %}
-        <h4 class="green">{{ skey }}</h4>
+        <h4 class="up">{{ skey }}</h4>
       {% elif el == 0 %}
-        <h4 class="red">{{ skey }}</h4>
+        <h4 class="down">{{ skey }}</h4>
       {% endif %}
     {% endfor %}
   {% endif %}
@@ -58,6 +46,7 @@ copy_dependency_dict:
     <th>Ended</th>
     <th>Duration (mins)</th>
     <th>Files (#)</th>
+    <th>Timeout</th>
   </tr>
   {% comment %} iterating the list of pools of the client here. {% endcomment %}
   {% for svalue2 in svalue %}
@@ -68,26 +57,35 @@ copy_dependency_dict:
         {% comment %} here we check if "pool from should exist (config)"(svalue2) is in jvalue (dict with pool-keys of client). {% endcomment %}
         {% if not svalue2 in jvalue %}
           <tr>
-            <td><span class="red">{{ svalue2 }}</span></td>
+            <td style="color: red;">{{ svalue2 }}</td>
           </tr>
         {% else %}
           <tr>
-          {% for jkey2, jvalue2 in jvalue.items %}
-            {% comment %} here we compare pools. {% endcomment %}
-            {% if svalue2 == jkey2 %}
-              {% if jvalue2.4 == 1 %}
-                <td><span class="yellow">{{ svalue2 }}</td>
-              {% elif jvalue2.4 == 0 %}
-                <td><span class="green">{{ svalue2 }}</td>
-              {% endif %}
-              {% for jvalue3 in jvalue2 %}
-                {% if forloop.counter == 5 %}
-                {% else %}
-                  <td><span>{{ jvalue3 }}</span></td>
-                {% endif %}
-              {% endfor %}
+
+
+            {% for jkey2, jvalue2 in jvalue.items %}
+              {% comment %} here we compare pools. {% endcomment %}
+              {% if svalue2 == jkey2 %}
+            {% if jvalue2.4 == 1 %}
+            <td style="color: yellow;">{{ svalue2 }}</td>
+            {% elif jvalue2.4 == 0 %}
+            <td style="color: green;">{{ svalue2 }}</td>
             {% endif %}
-          {% endfor %}
+
+
+                {% for jvalue3 in jvalue2 %}
+                  {% if forloop.counter == 5 %}
+                    {% if jvalue3 == 1 %}
+                      <td style="color: yellow;">OLD</td>
+                    {% else %}
+                      <td style="color: green;">OK</td>
+                    {% endif %}
+                  {% else %}
+                    <td><span>{{ jvalue3 }}</span></td>
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            {% endfor %}
           </tr>
         {% endif %}
       {% endif %}

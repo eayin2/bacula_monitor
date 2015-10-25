@@ -12,9 +12,16 @@ a {
   color: white; }
 
 h2 {
+  margin-top: 0;
   font-size: 105%;
+  display: inline-block;
   color: white;}
+.header ul{
+  margin-top: 0;
+  display: inline-block;}
 
+.header li{
+  display: inline-block;}
 .content {
   width: 99.6%;
   margin: 0 auto;
@@ -72,7 +79,9 @@ h2 {
     padding-bottom: 0;
     font-size: 120%;}
 
-.up {
+.green {
   color: green;}
-.down {
+.yellow {
+  color: yellow;}
+.red {
   color: red;}
