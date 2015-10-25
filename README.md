@@ -1,6 +1,6 @@
 # Bacula_monitor
 
-![Alt text](http://i.imgur.com/7J1ORCQ.jpg "web-ui")
+![Alt text](http://i.imgur.com/rZgGjdp.jpg "web-ui")
 
 ## Requirements:
 python3-Django >= 1.8.4 (opensuse's package name)
