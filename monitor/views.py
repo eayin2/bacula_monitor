@@ -19,10 +19,9 @@ from monitor.functions import client_pool_map, host_up
 # format: days : [pool_name1, ...]
 _timeouts = { 90 : [ "Full-LT", "Incremental-LT"],
               30 : [ "Full-ST", "Incremental-ST"],
-              60 : [ "Full-LT-Copies-01", "Incremental-LT-Copies-01"],
+              60 : [ "Full-LT-Copies-01", "Incremental-LT-Copies-01"], # (11)
              150 : [ "Full-LT-Copies-02", "Incremental-LT-Copies-02"] }
-              # note for myself: i set Copies-01 to 60 days, so i can easier see if i can do a disaster Copie-02 backup
-              # from relatively new Copies.
+
 
 #### Developer-Info
 # Pools:
@@ -56,24 +55,20 @@ def monitor(request):
     try:
         con = psycopg2.connect(database='bareos', user='bareos', host='phserver01')
         cur = con.cursor()
-        # Notice that jobstatus 'W' means terminated successful but with warnings in bareos. Iam not sure if bacula has the same jobstatus code too. bacula has T (successful) though.
-        cur.execute("\
-SELECT c.name, p.name, j.jobbytes, j.realendtime, j.starttime, j.jobfiles, f.fileset \
-FROM client c \
-LEFT JOIN ( \
-  SELECT DISTINCT ON (j.clientid, j.poolid, j.filesetid) \
-    j.jobbytes, j.realendtime, j.clientid, j.poolid, j.starttime, j.jobfiles, j.type, j.level, j.jobstatus, j.filesetid \
-  FROM job j \
-  WHERE j.jobstatus IN ('T', 'W') AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') \
-  ORDER BY j.clientid, j.poolid, j.filesetid, j.realendtime DESC \
-) j ON j.clientid = c.clientid \
-LEFT JOIN pool p ON p.poolid = j.poolid \
-LEFT JOIN fileset f ON f.filesetid = j.filesetid;")
-
+        cur.execute("SELECT c.name, p.name, j.jobbytes, j.realendtime, j.starttime, j.jobfiles, f.fileset \
+                     FROM client c \
+                     LEFT JOIN ( \
+                       SELECT DISTINCT ON (j.clientid, j.poolid, j.filesetid) \
+                       j.jobbytes, j.realendtime, j.clientid, j.poolid, j.starttime, j.jobfiles, j.type, j.level, j.jobstatus, j.filesetid \
+                       FROM job j \
+                       WHERE j.jobstatus IN ('T', 'W') AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') \
+                       ORDER BY j.clientid, j.poolid, j.filesetid, j.realendtime DESC \
+                     ) j ON j.clientid = c.clientid \
+                     LEFT JOIN pool p ON p.poolid = j.poolid \
+                     LEFT JOIN fileset f ON f.filesetid = j.filesetid;")  # (12)
         tuples = cur.fetchall()
         jobs = defaultdict(lambda: defaultdict(defaultdict))
-        # jobs dict looks like: { client1 : { pool1 : [ jobbytes, realendtime, .. ], pool2 : [..] }, client2: { ... } }
-        clients_pools_dict = defaultdict(list)
+        clients_pools_dict = defaultdict(list)  # (0)
         for t in tuples:
             client = t[0]
             fileset = t[6]
@@ -101,8 +96,7 @@ LEFT JOIN fileset f ON f.filesetid = j.filesetid;")
                     timeout = 0
             elif isinstance(_timeouts, dict):
                 for tk, tv in _timeouts.items():
-                    # checking if pool is in tv (list of pools from _timeouts)
-                    if pool in tv:
+                    if pool in tv:  # checking if pool is in tv (list of pools from _timeouts)
                         timeout_max = datetime.timedelta(days=tk)
                         if ( current_time - realendtime ) > timeout_max:
                             timeout = 1
@@ -114,20 +108,17 @@ LEFT JOIN fileset f ON f.filesetid = j.filesetid;")
     except ValueError as err:
         logger.debug(err)
         logger.debug("Error in view.")
-    # here we sort our copy pool dependency dictionary before filling it into the client_pool dictionary
-    for key, li in config_copy_dep.items():
+    for key, li in config_copy_dep.items(): # (9)
         config_copy_dep[key] = sorted(li)
-    # here we add copy pools that are associated to a pool to the config client's pool dictionary (aka jobs_should).
-    config_copy_dep = OrderedDict(sorted(config_copy_dep.items()))
+    config_copy_dep = OrderedDict(sorted(config_copy_dep.items())) # (10)
     for cpk, cpv in config_client_pool.items():
         for cdk, cdv in config_copy_dep.items():
             if cdk in cpv:
                 for cdv2 in cdv:
                     config_client_pool[cpk].add(cdv2)
-    # Sorting in the end so that set() doesnt get converted to list()
     for key, li in config_client_pool.items():
         config_client_pool[key] = sorted(li)
-    config_client_pool = OrderedDict(sorted(config_client_pool.items()))
+    config_client_pool = OrderedDict(sorted(config_client_pool.items())) # (8)
     hosts = dict(host_up())  # (5)
     for jck, jcv in jobs.items(): # (4)
         for cck, ccv in config_client_pool.items():  # config_client_key/val
@@ -140,10 +131,6 @@ LEFT JOIN fileset f ON f.filesetid = j.filesetid;")
                         else:
                             jobs[jck][jfk][cce] = 0 # (6)
     jobs = default_to_regular(jobs)  # (5)
-#    for jck, jcv in jobs.items():
- #       for jfk, jfv in jcv.items():
-  #          jobs[jfk] = sorted(jfv)
-    logger.debug(jobs)
     for jck, jcv in jobs.items():
         for jfk, jfv in jcv.items():
             jobs[jck][jfk] = OrderedDict( sorted( jobs[jck][jfk].items() ) )
@@ -152,6 +139,7 @@ LEFT JOIN fileset f ON f.filesetid = j.filesetid;")
 
 
 # Notes:
+# (0) jobs dict looks like: { client1 : { pool1 : [ jobbytes, realendtime, .. ], pool2 : [..] }, client2: { ... } }
 # (1) ccv looks as such: ['Full-LT', 'Full-LT-Copies-01', 'Full-LT-Copies-02', 'Incremental-LT', 'Incremental-LT-Copies-01', 'Incremental-LT-Copies-02']
 # (2) jfv looks like: defaultdict(None, {'Full-ST': [181, '03.10.15 16:30', 30, 116172, 0], 'Incremental-ST': [2, '24.10.15 18:19', 0, 78, 0]})
 # (3) a dictionary will always return keys/values in random order, that's why we have to use an "OrderedDict"
@@ -159,4 +147,8 @@ LEFT JOIN fileset f ON f.filesetid = j.filesetid;")
 # (5) converting back to dict so template can print it
 # (6) set it to 0, not sure if it cascades with None
 # (7) if job client key (is) == config client key (should)
-
+# (8) Sorting in the end, so that set() doesnt get converted to list(), in order to have add() method available.
+# (9) here we sort our copy pool dependency dictionary before filling it into the client_pool dictionary
+# (10) here we add copy pools that are associated to a pool to the config client's pool dictionary (aka jobs_should).
+# (11) note for myself: i set Copies-01 to 60 days, so i can easier see if i can do a disaster Copie-02 backup from relatively new Copies.
+# (12) jobstatus 'W' means terminated successful but with warnings in bareos. Iam not sure if bacula has the same jobstatus code too. bacula has T (successful) though.

@@ -1,8 +1,3 @@
-{% comment %} { phlap01linw-fd : { Full-LT-Copies-02: [18, '22.05.15 02:33', 21, 255493], Full-LT: [18, '22.03.15 01:10', 51, 26593], } }
-               client_pool_dict: {'"phlap01winw-fd"': {'Incremental-ST', 'Incremental-LT', 'Full-ST', 'Full-LT'}, 'phserver01-fd': {'Incremental-ST', 'Full-ST'},
-                                  '"phlap01linw-fd"': {'Incremental-ST', 'Incremental-LT', 'Full-ST', 'Full-LT'}}
-           copy_dependency_dict: {'Incremental-LT': {'Incremental-LT-Copies-01', 'Incremental-LT-Copies-02'}, 'Full-LT': {'Full-LT-Copies-02', 'Full-LT-Copies-01'}} {% endcomment %}
-
 <html>
   <head>
     <link rel="stylesheet" href="/static/styles/styles.css">
@@ -79,3 +74,10 @@
 </div> <!-- content -->
 </body>
 </html>
+
+{% comment %} Example dictionaries:
+jobs:                 { phlap01linw-fd : { Full-LT-Copies-02: [18, '22.05.15 02:33', 21, 255493], Full-LT: [18, '22.03.15 01:10', 51, 26593], } }
+client_pool_dict:     {'"phlap01winw-fd"': {'Incremental-ST', 'Incremental-LT', 'Full-ST', 'Full-LT'}, 'phserver01-fd': {'Incremental-ST', 'Full-ST'},
+                       '"phlap01linw-fd"': {'Incremental-ST', 'Incremental-LT', 'Full-ST', 'Full-LT'}}
+copy_dependency_dict: {'Incremental-LT': {'Incremental-LT-Copies-01', 'Incremental-LT-Copies-02'}, 'Full-LT': {'Full-LT-Copies-02', 'Full-LT-Copies-01'}} {% endcomment %}
+

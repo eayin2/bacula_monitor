@@ -147,8 +147,7 @@ def client_pool_map():
 
             else:
                 print("no jobdefs, pool and client info.")
-    # don't sort the dictionaries here yet, because we still need the set() values.
-    return config_client_pool, config_copy_dep
+    return config_client_pool, config_copy_dep  # (1)
 
 def hosts():
     """Parses config and returns all clients and associated hostnames."""
@@ -182,4 +181,6 @@ def host_up():
             _hosts[ hk ].add(0)
     return _hosts
 print(host_up())
+
+# (1) don't sort the dictionaries here yet, because we still need the set() values.
 
