@@ -1,5 +1,7 @@
 # Bacula_monitor
-
+Displays most recent successful job for each client's fileset pools on one page and additionally compares
+it to your configured jobs to show by markup, whether a backup is missing. Moreover you can configure for
+defined pools a timeout value (in days), after that the backup should be marked up as old (yellow).
 ![Alt text](http://i.imgur.com/rZgGjdp.jpg "web-ui")
 
 ## Requirements:
@@ -42,10 +44,5 @@ jobdefs_path = /etc/bacula/bacula-dir.d/jobs/jobdefs.conf
 jobs_path = /etc/bacula/bacula-dir.d/jobs/
 client_config = "/etc/bareos/bacula-dir.d/clients.conf"
 
-
-
 -> If you change configurations make sure to restart your webserver.
 
-## Notice
-bacula-monitor displays the latest jobs for each client's pool. this implies that when you have multiple filesets
-for one client-pool, that then only the most recent job is displayed, so filesets are not differentiated (yet?).
