@@ -3,7 +3,7 @@ Displays most recent successful job for each client's fileset pools on one page 
 it to your configured jobs to show by markup, whether a backup is missing. Moreover you can configure for
 defined pools a timeout value (in days), after that the backup should be marked up as old (yellow).
 Your config file (you have to specify the path in functions.py) will be parsed for the configured clients
-and thus checked for connectable port 9102, to indicate whether your client's bacula service is up or down.
+and thus checked for connectivity on port 9102, to indicate whether your client's bacula service is up or down.
 ![Alt text](http://i.imgur.com/rZgGjdp.jpg "web-ui")
 
 ## Requirements:
