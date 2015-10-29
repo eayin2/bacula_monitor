@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 import yaml
 from voluptuous import Schema, Required, All, Length, Range, MultipleInvalid
-
+from six import iteritems
 #### Validating Config
 def validate_yaml():
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -61,7 +61,7 @@ def config_values(d):
     ibp = None
     np = None
     ty = None
-    d = {k.lower():v for k,v in d.items()}
+    d = {k.lower():v for k,v in d.iteritems()}
     try:
         client = d[ "client"]
     except:
@@ -143,7 +143,7 @@ def parse_bacula(lines):
             key, value = m.groups()
             obj[key.strip()] = value.rstrip(';')
             continue
-    parsed = [{key.lower():val.replace('"',"") for key, val in dict.items()} for dict in parsed]  # Removing any quote signs from values and applying lower() to all keys.
+    parsed = [{key.lower():val.replace('"',"") for key, val in dict.iteritems()} for dict in parsed]  # Removing any quote signs from values and applying lower() to all keys.
     return parsed
 
 def client_pool_map():
@@ -159,14 +159,14 @@ def client_pool_map():
         for d in parsed_conf:
             if d["resource"].lower() == "job":
                 done = False
-                d = {k.lower():v for k,v in d.items()}
+                d = {k.lower():v for k,v in d.iteritems()}
                 cvd = config_values(d) # config value dict
                 if  "jobdefs" in d:  # (2)
                     jobdef_name = d["jobdefs"].lower()
                     jcd = jobdefs_conf_values(jobdef_name)  # jobdefs config dict
                 else:
                     jcd = config_values(d)  # if no jobdefs then set jcd also to config values and when its compared to cvd then it doesnt differentiate from cvl.
-                cvd.update({jck:jcv for jck, jcv in jcd.items() if jcv})  # jobdefs config key (its just temp value dict, no nested things here)
+                cvd.update({jck:jcv for jck, jcv in jcd.iteritems() if jcv})  # jobdefs config key (its just temp value dict, no nested things here)
                 if cvd["fileset"] == None and cvd['type'].lower() == "copy":
                     config_copy_dep[d["pool"]].add(cvd["next pool"])  # above we added also next pool (if available) to the dict cvd
                     continue  # because we dont want fileset None-type in our jobs_config.
@@ -194,14 +194,12 @@ def hosts():
 def host_up():
     """Checks if bacula's file daemon port is open and returns dictionary of available hosts."""
     _hosts = hosts()
-    for hk, hv in _hosts.items():
+    for hk, hv in _hosts.iteritems():
         p2 = Popen([ "/usr/bin/netcat", "-z", "-v", "-w", "2", list(hv)[0], port ], stdout=PIPE, stderr=PIPE, universal_newlines=True)
         out, err = p2.communicate()
         if "succeeded" in err:
-            print('y')
             _hosts[ hk ].add(1)
         else:
-            print('n')
             _hosts[ hk ].add(0)
     return _hosts
 
@@ -209,6 +207,3 @@ def host_up():
 # (2) besides creating jobs_config dictionary, we also create our config_copy_dependency dictionary here.
 # (3) continue with next loop if neither in jobdefs nor in jobs config a setting is defined for either pool,client or fileset.
 
-a, b = client_pool_map()
-print("jobs_config")
-print(a)

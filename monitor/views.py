@@ -6,13 +6,13 @@ import logging
 logger = logging.getLogger(__name__)
 import datetime
 import re
-import pprint
 import os
 import psycopg2
 import sys
 from subprocess import Popen,PIPE
 from collections import defaultdict, OrderedDict
 from monitor.functions import client_pool_map, host_up, validate_yaml
+from six import iteritems
 # Validating YAML and retrieving timeout setting. if there's no timeout setting we use a default value here.
 yaml_parsed = validate_yaml()
 try:
@@ -23,7 +23,7 @@ except:
 
 def default_to_regular(d):
     if isinstance(d, defaultdict):
-        d = {k: default_to_regular(v) for k, v in d.items()}
+        d = {k: default_to_regular(v) for k, v in d.iteritems()}
     return d
 
 def monitor(request):
@@ -74,7 +74,7 @@ def monitor(request):
                 else:
                     timeout = 0
             elif isinstance(_timeouts, dict):
-                for tk, tv in _timeouts.items():
+                for tk, tv in _timeouts.iteritems():
                     if pool in tv:  # checking if pool is in tv (list of pools from _timeouts)
                         timeout_max = datetime.timedelta(days=tk)
                         if ( current_time - realendtime ) > timeout_max:
@@ -87,38 +87,38 @@ def monitor(request):
     except ValueError as err:
         logger.debug(err)
         logger.debug("Error in view.")
-    for key, li in config_copy_dep.items(): # (9)
+    for key, li in config_copy_dep.iteritems(): # (9)
         config_copy_dep[key] = sorted(li)
-    config_copy_dep = OrderedDict(sorted(config_copy_dep.items())) # (10)
+    config_copy_dep = OrderedDict(sorted(config_copy_dep.iteritems())) # (10)
 
     # adding "copy dependend pools" to "jobs config pools"
-    for cck, ccv in jobs_config.items():  # config client key/val
-        for cfk, cfv in ccv.items(): # config fileset
-            for cdk, cdv in config_copy_dep.items(): # config dep is just 1 level dict like so: {'Full-LT': ['Full-Copy-LT', 'Incremental-Copy-LT'], ...}
+    for cck, ccv in jobs_config.iteritems():  # config client key/val
+        for cfk, cfv in ccv.iteritems(): # config fileset
+            for cdk, cdv in config_copy_dep.iteritems(): # config dep is just 1 level dict like so: {'Full-LT': ['Full-Copy-LT', 'Incremental-Copy-LT'], ...}
                 if cdk in cfv:  # cfv is list of pools associated to fileset key
                     for cde in cdv: # copy dep element
                         jobs_config[cck][cfk].add(cde)  # adding dep pool to list client_fileset pools.
-    for jck, jcv in jobs_config.items():
-        for cfk, cfv in jcv.items():
+    for jck, jcv in jobs_config.iteritems():
+        for cfk, cfv in jcv.iteritems():
             jobs_config[jck][cfk] = sorted(cfv)
-    jobs_config = OrderedDict(sorted(jobs_config.items())) # (8)
+    jobs_config = OrderedDict(sorted(jobs_config.iteritems())) # (8)
     hosts = dict(host_up())  # (5)
     # setting missing pools to value 0.
-    for jck, jcv in jobs.items(): # (4)
-        for cck, ccv in jobs_config.items():  # config_client_key/val
+    for jck, jcv in jobs.iteritems(): # (4)
+        for cck, ccv in jobs_config.iteritems():  # config_client_key/val
             if jck == cck: # (7)
-                for jfk, jfv in jcv.items():
-                    for cfk, cfv in ccv.items():  # cfv is a list of all pools that "should" exist for each client's fileset.
+                for jfk, jfv in jcv.iteritems():
+                    for cfk, cfv in ccv.iteritems():  # cfv is a list of all pools that "should" exist for each client's fileset.
                         if jfk == cfk:  # if not checked that jfk == cfk, we would get pools marked as missing for filesets though they aren't.
                             for cfe in cfv: # (1)
                                 if not cfe in jfv: # (2)
                                     jobs[jck][jfk][cfe] = 0 # (6)
     jobs = default_to_regular(jobs)  # (5)
     # Sorting
-    for jck, jcv in jobs.items():
-        for jfk, jfv in jcv.items():
-            jobs[jck][jfk] = OrderedDict( sorted( jobs[jck][jfk].items() ) )
-    jobs = OrderedDict( sorted( jobs.items() ) )  # (3)
+    for jck, jcv in jobs.iteritems():
+        for jfk, jfv in jcv.iteritems():
+            jobs[jck][jfk] = OrderedDict( sorted( jobs[jck][jfk].iteritems() ) )
+    jobs = OrderedDict( sorted( jobs.iteritems() ) )  # (3)
     return render_to_response('monitor/index.html', {'jobs' : jobs, 'hosts' : hosts }, context_instance=RequestContext(request))
 
 
