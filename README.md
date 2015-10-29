@@ -4,7 +4,7 @@ it to your configured jobs to show by markup, whether a backup is missing. Moreo
 defined pools a timeout value (in days), after that the backup should be marked up as old (yellow).
 Your config file (you have to specify the path in functions.py) will be parsed for the configured clients
 and thus checked for connectivity on port 9102, to indicate whether your client's bacula service is up or down.
-![Alt text](http://i.imgur.com/rZgGjdp.jpg "web-ui")
+![Alt text](http://i.imgur.com/7p8jMAx.jpg "web-ui")
 
 ## Requirements:
 python3-Django >= 1.8.4 (opensuse's package name)
