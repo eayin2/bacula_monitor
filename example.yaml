@@ -1,8 +1,0 @@
-# Bacula config path
-bacula_config_path: "/etc/bareos/bareos-dir.d/"
-# File daemon port on client
-port: 9102
-# Timeout for jobs (in days). if the specified time exceeds the time that a backup was done, then the backup is marked as old (yellow in webui)
-# Syntax: days : [pool_name1, pool_name2, ..]
-#timeouts:  
- #   90: ["Full-LT", "Incremental-LT"]
