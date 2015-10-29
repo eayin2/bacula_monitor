@@ -8,12 +8,18 @@ and thus checked for connectivity on port 9102, to indicate whether your client'
 
 ## Requirements:
 Django >= 1.8.4
+
 netcat
+
 psycopg2
+
 PyYAML
+
 voluptuous
 
+
 Optionally (recommended):
+
 virtualenv
 
 
