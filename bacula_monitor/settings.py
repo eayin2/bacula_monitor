@@ -40,7 +40,6 @@ TEMPLATE_PATH = os.path.join(PROJECT_PATH, 'templates')
 # Application definition
 
 INSTALLED_APPS = (
-    'django_pdb',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -59,7 +58,6 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'django_pdb.middleware.PdbMiddleware',
 )
 
 ROOT_URLCONF = 'bacula_monitor.urls'

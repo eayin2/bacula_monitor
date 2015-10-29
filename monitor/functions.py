@@ -8,59 +8,109 @@ from subprocess import Popen,PIPE
 import fnmatch
 import os
 from collections import defaultdict
-
 import logging
 logger = logging.getLogger(__name__)
+import yaml
+from voluptuous import Schema, Required, All, Length, Range, MultipleInvalid
 
-#### Config
-# path to the job configs. I tested it with bareos, so i the bareos config path. For bacula put it in the approriate path.
-jobs_path = "/etc/bareos/bareos-dir.d/jobs"
-# file path to jobdefs.conf
-jobdefs_path = "/etc/bareos/bareos-dir.d/jobs/jobdefs.conf"
-# Path to your client config.
-client_config = "/etc/bareos/bareos-dir.d/clients.conf"
+#### Validating Config
+def validate_yaml():
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    logger.debug(BASE_DIR)
+    with open(os.path.join(BASE_DIR,"bm.conf"), 'r') as stream:
+        yaml_parsed = yaml.load(stream)
+    schema = Schema({
+        Required('bacula_config_path'): str,
+        Required('port'): int,
+        'timeouts': Schema({int: [str]}) # if not timeouts set, use default value
+    })
+    try:
+        schema(yaml_parsed)
+    except MultipleInvalid as e:
+        exc = e
+        raise AssertionError(e)
+    return yaml_parsed
+yaml_parsed = validate_yaml()
+bacula_config_path = yaml_parsed["bacula_config_path"]
+port = str(yaml_parsed["port"])
 
 #### Functions
-def fill_pools_to_client(jobdef_name, value_list, jobs_dict, config_client_pool, client=None):
-    """ parses jobdefs.conf and returns values for given keys packed in a dictionary. """
-    with open (jobdefs_path, "r") as myfile:
-        jobdefs_parsed = parse_bacula(myfile)
-    value_dict = defaultdict()
-    for dict in jobdefs_parsed:
-        dict = {k.lower():v for k,v in dict.items()}
-        if dict["name"].lower().replace('"', '') == jobdef_name.lower().replace('"',''):
-            for value in value_list:
-                try:
-                    if client:
-                        print(dict[value].replace("'", ""))
-                        print(dict[value])
-                        client = re.sub('["\']', '', client)
-                        config_client_pool[ client ].add(dict[value].replace("'", ""))
-                    else:
-                        name= re.sub('[(){}<>]', '', name)
-                        client = re.sub('["\']', '', dict["client"])
-                        config_client_pool[ client ].add(dict[value].replace("'", ''))
+def bacula_config_files():
+    """ returns all files found in bacula_config_path recursively. """
+    files = []
+    for root, dirnames, filenames in os.walk(bacula_config_path):
+        for filename in fnmatch.filter(filenames, '*.conf'):
+            file_path = os.path.join(root, filename)
+            files.append(os.path.join(root, filename))
+    return files
 
-                except Exception as err:
-                    print(err)
-                    print("jobdefs has dict[%s] neither." % value)
-    return config_client_pool
+def handleError(function):
+    def handleProblems():
+        try:
+            function()
+        except Exception:
+            pass
+    return handleProblems
 
-def jobdefs_values(jobdef_name, value_list):
+def config_values(d):
+    """ jobdefs uses this function and its dict looks like {"thing": "jobdefs", ... } and jobs dict looks like {"thing": "job",... } """
+    client = None
+    fileset = None
+    pool = None
+    fbp = None
+    ibp = None
+    np = None
+    ty = None
+    d = {k.lower():v for k,v in d.items()}
+    try:
+        client = d[ "client"]
+    except:
+        pass
+    try:
+        fileset = d["fileset"]
+    except:
+        pass
+    try:
+        pool = d["pool"]
+    except:
+        pass
+    try:
+        fbp = d["full backup pool"]
+    except:
+        pass
+    try:
+        ibp = d["incremental backup pool"]
+    except:
+        pass
+    try:
+        np = d["next pool"]
+    except:
+        pass
+    try:
+        ty = d["type"]
+    except:
+        pass
+    cvl = {"client": client,
+           "fileset": fileset,
+           "pool": pool,
+           "full backup pool": fbp,
+           "incremental backup pool": ibp,
+           "type": ty,
+           "next pool": np}
+    return cvl
+
+def jobdefs_conf_values(jobdef_name):
     """ parses jobdefs.conf and returns values for given keys packed in a dictionary. """
-    with open (jobdefs_path, "r") as myfile:
-        jobdefs_parsed = parse_bacula(myfile)
-    value_dict = defaultdict()
-    for dict in jobdefs_parsed:
-        dict = {k.lower():v for k,v in dict.items()}
-        if dict["name"].lower().replace('"', '') == jobdef_name.lower().replace('"',''):
-            for value in value_list:
-                try:
-                    value_dict[value] = dict[value]
-                except Exception as err:
-                    print(err)
-                    print("jobdefs has dict[%s] neither." % value)
-    return value_dict
+    files = bacula_config_files()
+    for file in files:
+        with open (file, "r") as myfile:
+            parsed_conf = parse_bacula(myfile)
+        if not parsed_conf:  # excludes nested configs, which our parser can't parse.
+            continue
+        for d in parsed_conf:
+            if d["name"].lower() == jobdef_name and d["resource"].lower() == "jobdefs":
+                jcd = config_values(d)
+    return jcd   # job config dict
 
 def parse_bacula(lines):
     """ can parse bacula configs and returns a list of each config segment packed in one dictionary. """
@@ -71,13 +121,13 @@ def parse_bacula(lines):
         line = line.strip()
         if not line:
             continue
-
         m = re.match(r"(\w+)\s*{", line)
         if m:
             # Start a new object
             if obj is not None:
-                raise Exception("Nested objects!")
-            obj = {'thing': m.group(1)}
+                return None  # if file is nested, than skip it. (e.g. filesets.conf is nested, and we dont want to parse fileset resources.)
+#                raise Exception("Nested objects!")
+            obj = {'resource': m.group(1)}
             parsed.append(obj)
             continue
 
@@ -93,85 +143,59 @@ def parse_bacula(lines):
             key, value = m.groups()
             obj[key.strip()] = value.rstrip(';')
             continue
+    parsed = [{key.lower():val.replace('"',"") for key, val in dict.items()} for dict in parsed]  # Removing any quote signs from values and applying lower() to all keys.
     return parsed
-
-
 
 def client_pool_map():
     """ returns a dictionary of all pools that a client is associated to in the bacula jobs config."""
-    files = []
-
-    for root, dirnames, filenames in os.walk(jobs_path):
-        for filename in fnmatch.filter(filenames, '*.conf'):
-            file_path = os.path.join(root, filename)
-            if file_path == jobdefs_path:
-                continue
-            files.append(os.path.join(root, filename))
-
-    config_client_pool = defaultdict(set)
+    files = bacula_config_files()
+    jobs_config = defaultdict(lambda: defaultdict(set))
     config_copy_dep = defaultdict(set)
     for file in files:
         with open (file, "r") as myfile:
             parsed_conf = parse_bacula(myfile)
+        if not parsed_conf:
+            continue
         for d in parsed_conf:
-            d = {k.lower():v for k,v in d.items()}
-
-            if "pool" in d and "client" in d:
-                 print(d["client"])
-                 print(d["pool"])
-                 print(config_client_pool)
-                 config_client_pool[d["client"]].add(d["pool"])
-
-            elif "jobdefs" in d:
-                jobdef_name = d["jobdefs"].lower()
-
-                if "client" in d and not "pool" in d:
-                    config_client_pool = fill_pools_to_client(jobdef_name, ["pool", "incremental backup pool", "full backup pool"], d, config_client_pool, d["client"])
-
-                elif not "client" in d and "pool" in d:
-
-                    # Copy Job
-                    if "type" in d:
-                        if d["type"].lower() == "copy":
-                            config_copy_dep[dict["pool"]].add(d["next pool"])
-
-                    elif jobdefs_values(jobdef_name, ['type'])["type"].lower() == "copy":
-                        config_copy_dep[d["pool"]].add(d["next pool"])
-
-                    # Backup Job
-                    else:
-                        config_client_pool = fill_pools_to_client(jobdef_name, ["pool", "incremental backup pool", "full backup pool"], d, config_client_pool)
-
-                elif not "client" in d and not "pool" in d:
-                    config_client_pool = fill_pools_to_client(jobdef_name, ["pool", "incremental backup pool", "full backup pool"], d, config_client_pool)
-
-            else:
-                print("no jobdefs, pool and client info.")
-    return config_client_pool, config_copy_dep  # (1)
+            if d["resource"].lower() == "job":
+                done = False
+                d = {k.lower():v for k,v in d.items()}
+                cvd = config_values(d) # config value dict
+                if  "jobdefs" in d:  # (2)
+                    jobdef_name = d["jobdefs"].lower()
+                    jcd = jobdefs_conf_values(jobdef_name)  # jobdefs config dict
+                else:
+                    jcd = config_values(d)  # if no jobdefs then set jcd also to config values and when its compared to cvd then it doesnt differentiate from cvl.
+                cvd.update({jck:jcv for jck, jcv in jcd.items() if jcv})  # jobdefs config key (its just temp value dict, no nested things here)
+                if cvd["fileset"] == None and cvd['type'].lower() == "copy":
+                    config_copy_dep[d["pool"]].add(cvd["next pool"])  # above we added also next pool (if available) to the dict cvd
+                    continue  # because we dont want fileset None-type in our jobs_config.
+                elif cvd["client"] == None or cvd["fileset"] == None or cvd["pool"] == None and not cvd['type'] == "copy":
+                    continue
+                client, fileset = [cvd["client"], cvd["fileset"]]
+                [jobs_config[client][fileset].add(pv) for pv in [cvd["pool"], cvd["full backup pool"], cvd["incremental backup pool"]] if pv]
+    logger.debug(config_copy_dep)
+    return jobs_config, config_copy_dep  # (1)
 
 def hosts():
-    """Parses config and returns all clients and associated hostnames."""
-    with open (client_config, "r") as myfile:
-        client_parsed = parse_bacula(myfile)
-    # For dictionaries in list of dict.
+    """Searches for client resources, parses for address+name and then returns them as dict."""
+    files = bacula_config_files()
     _hosts = defaultdict(set)
-    for d in client_parsed:
-        # Making sure we got the right config segment.
-        if d["thing"].lower() == "client":
-            for dk, dv in d.items():
-                if dk.lower() == "name":
-                    name = dv
-                elif dk.lower() == "address":
-                    address = dv
-            _hosts[ name ].add( address )
+    for file in files:
+        with open (file, "r") as myfile:
+            parsed_conf = parse_bacula(myfile)
+        if not parsed_conf:
+            continue
+        for d in parsed_conf:
+            if d["resource"].lower() == "client":
+                _hosts[d['name']].add(d['address'])
     return _hosts
 
 def host_up():
-    """Checks if 9102 is open and returns dictionary of available hosts."""
-    # bacula requires port 9102 be opened on the file daemon.
+    """Checks if bacula's file daemon port is open and returns dictionary of available hosts."""
     _hosts = hosts()
     for hk, hv in _hosts.items():
-        p2 = Popen([ "/usr/bin/netcat", "-z", "-v", "-w", "2", list(hv)[0], "9102" ], stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        p2 = Popen([ "/usr/bin/netcat", "-z", "-v", "-w", "2", list(hv)[0], port ], stdout=PIPE, stderr=PIPE, universal_newlines=True)
         out, err = p2.communicate()
         if "succeeded" in err:
             print('y')
@@ -180,7 +204,11 @@ def host_up():
             print('n')
             _hosts[ hk ].add(0)
     return _hosts
-print(host_up())
 
 # (1) don't sort the dictionaries here yet, because we still need the set() values.
+# (2) besides creating jobs_config dictionary, we also create our config_copy_dependency dictionary here.
+# (3) continue with next loop if neither in jobdefs nor in jobs config a setting is defined for either pool,client or fileset.
 
+a, b = client_pool_map()
+print("jobs_config")
+print(a)

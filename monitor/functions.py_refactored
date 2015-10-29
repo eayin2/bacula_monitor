@@ -1,0 +1,199 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+import re
+import os
+import psycopg2
+import sys
+from subprocess import Popen,PIPE
+import fnmatch
+import os
+from collections import defaultdict
+
+import logging
+logger = logging.getLogger(__name__)
+
+#### Config
+# path to the job configs. I tested it with bareos, so i the bareos config path. For bacula put it in the approriate path.
+jobs_path = "/etc/bareos/bareos-dir.d/jobs"
+# file path to jobdefs.conf
+jobdefs_path = "/etc/bareos/bareos-dir.d/jobs/jobdefs.conf"
+# Path to your client config.
+client_config = "/etc/bareos/bareos-dir.d/clients.conf"
+
+#### Functions
+
+def handleError(function):
+    def handleProblems():
+        try:
+            function()
+        except Exception:
+            pass
+    return handleProblems
+
+
+def config_values(d):
+    client = None
+    fileset = None
+    pool = None
+    try:
+        client = d[ "client"]
+    except:
+        pass
+    try:
+        fileset = d["fileset"]
+    except:
+        pass
+    try:
+        pool = d["pool"]
+    except:
+        pass
+    cvl = [client, fileset, pool]
+    return cvl
+
+def jobdefs_conf_values(jobdef_name):
+    """ parses jobdefs.conf and returns values for given keys packed in a dictionary. """
+    with open (jobdefs_path, "r") as myfile:
+        jobdefs_parsed = parse_bacula(myfile)
+    for dict in jobdefs_parsed:
+        dict = {k.lower():v for k,v in dict.items()}
+        print(dict["name"].lower())
+        if dict["name"].lower().replace('"', "") == jobdef_name.lower().replace('"',''):
+            jcl = config_values(dict)
+    return jcl
+
+def jobdefs_values(jobdef_name, value_list):
+    """ parses jobdefs.conf and returns values for given keys packed in a dictionary. """
+    with open (jobdefs_path, "r") as myfile:
+        jobdefs_parsed = parse_bacula(myfile)
+    value_dict = defaultdict()
+    for dict in jobdefs_parsed:
+        dict = {k.lower():v for k,v in dict.items()}
+        if dict["name"].lower().replace('"', "") == jobdef_name.lower().replace('"',''):
+            for value in value_list:
+                try:
+                    value_dict[value] = dict[value]
+                except Exception as err:
+                    print(err)
+                    print("jobdefs has dict[%s] neither." % value)
+    return value_dict
+
+def parse_bacula(lines):
+    """ can parse bacula configs and returns a list of each config segment packed in one dictionary. """
+    parsed = []
+    obj = None
+    for line in lines:
+        line, hash, comment = line.partition('#')
+        line = line.strip()
+        if not line:
+            continue
+
+        m = re.match(r"(\w+)\s*{", line)
+        if m:
+            # Start a new object
+            if obj is not None:
+                raise Exception("Nested objects!")
+            obj = {'thing': m.group(1)}
+            parsed.append(obj)
+            continue
+
+        m = re.match(r"\s*}", line)
+        if m:
+            # End an object
+            obj = None
+            continue
+
+        m = re.match(r"\s*([^=]+)\s*=\s*(.*)$", line)
+        if m:
+            # An attribute
+            key, value = m.groups()
+            obj[key.strip()] = value.rstrip(';')
+            continue
+    return parsed
+
+def client_pool_map():
+    """ returns a dictionary of all pools that a client is associated to in the bacula jobs config."""
+    files = []
+    for root, dirnames, filenames in os.walk(jobs_path):
+        for filename in fnmatch.filter(filenames, '*.conf'):
+            file_path = os.path.join(root, filename)
+            if file_path == jobdefs_path:
+                continue
+            files.append(os.path.join(root, filename))
+    jobs_config = defaultdict(lambda: defaultdict(set))
+    config_copy_dep = defaultdict(set)
+    for file in files:
+        with open (file, "r") as myfile:
+            parsed_conf = parse_bacula(myfile)
+        for d in parsed_conf:
+            done = False
+            d = {k.lower():v for k,v in d.items()}
+            cvl = config_values(d)
+            if  "jobdefs" in d:  # (2)
+                jobdef_name = d["jobdefs"].lower()
+                pjl = jobdefs_conf_values(jobdef_name)
+            else:
+                pjl = [None, None, None]
+            ls =  list()
+            print("jetzt")
+            for i, cv in enumerate(cvl): # could have done this also with dictionaries and then comparing each key from both dicts.
+                print("cv:")
+                print(cv)
+                if cv:
+                    ls.append(cv)
+                elif not cv:
+                    if pjl[i]:
+                        ls.append(pjl[i])
+                    else:
+                        done=True # (3)
+                        break
+            if done:
+                continue
+            client, fileset, pool = ls
+            jobs_config[client][fileset].add(pool)
+            if  "jobdefs" in d:  # (2)
+                if "type" in d:
+                    if d["type"].lower() == "copy":
+                        config_copy_dep[dict["pool"]].add(d["next pool"])
+                elif jobdefs_values(jobdef_name, ['type'])["type"].lower() == "copy":
+                    config_copy_dep[d["pool"]].add(d["next pool"])
+    return jobs_config, config_copy_dep  # (1)
+
+def hosts():
+    """Parses config and returns all clients and associated hostnames."""
+    with open (client_config, "r") as myfile:
+        client_parsed = parse_bacula(myfile)
+    # For dictionaries in list of dict.
+    _hosts = defaultdict(set)
+    for d in client_parsed:
+        # Making sure we got the right config segment.
+        if d["thing"].lower() == "client":
+            for dk, dv in d.items():
+                if dk.lower() == "name":
+                    name = dv
+                elif dk.lower() == "address":
+                    address = dv
+            _hosts[ name ].add( address )
+    return _hosts
+
+def host_up():
+    """Checks if 9102 is open and returns dictionary of available hosts."""
+    # bacula requires port 9102 be opened on the file daemon.
+    _hosts = hosts()
+    for hk, hv in _hosts.items():
+        p2 = Popen([ "/usr/bin/netcat", "-z", "-v", "-w", "2", list(hv)[0], "9102" ], stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        out, err = p2.communicate()
+        if "succeeded" in err:
+            print('y')
+            _hosts[ hk ].add(1)
+        else:
+            print('n')
+            _hosts[ hk ].add(0)
+    return _hosts
+
+# (1) don't sort the dictionaries here yet, because we still need the set() values.
+# (2) besides creating jobs_config dictionary, we also create our config_copy_dependency dictionary here.
+# (3) continue with next loop if neither in jobdefs nor in jobs config a setting is defined for either pool,client or fileset.
+
+a, b = client_pool_map()
+print("jobs_config")
+print(a)

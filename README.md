@@ -8,6 +8,7 @@ and thus checked for connectivity on port 9102, to indicate whether your client'
 
 ## Requirements:
 python3-Django >= 1.8.4 (opensuse's package name)
+netcat
  -or-
 pip3 install Django
 pip3 install psycopg2

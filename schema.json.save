@@ -1,0 +1,88 @@
+{
+    "$schema": "http://json-schema.org/schema",
+    "additionalProperties": false,
+    "properties": {
+        "timeout": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties":
+                 {
+                     "source": {"type": "string"},
+                     "dest": {"type": "string"},
+                     "keep": {"type": "string"},
+                     "scheduleHours": {"type":"number"}
+                 },
+                 "required": ["source", "dest", "keep"],
+                 "additionalProperties": false
+            }
+        },
+        "local":
+        {
+            "type": "object",
+            "additionalProperties":
+            {
+                "type": "object",
+                "properties":
+                {
+                    "source": {"type":"string"},
+                    "dest": {"type":"string"},
+                    "keep": {"type":"string"},
+                    "snapshotName": {"type":"string"},
+                    "destContainer": {"type":"string"},
+                    "destRoot": {"type":"string"},
+                    "scheduleHours": {"type":"number"}
+                },
+                "required": ["source", "dest", "keep", "snapshotName", "destContainer", "destRoot"],
+                "additionalProperties": false
+            }
+        },
+        "localRM":
+        {
+            "type": "object",
+            "additionalProperties":
+            {
+                "type": "object",
+                "properties":
+                {
+                    "source": {"type":"string"},
+                    "dest": {"type":"string"},
+                    "scheduleHours": {"type":"number"}
+                },
+                "required": ["source", "dest"],
+                "additionalProperties": false
+            }
+        },
+        "remote":
+        {
+            "type": "object",
+            "additionalProperties":
+            {
+                "type": "object",
+                "properties":
+                {
+                    "ip": {"type":"string"},
+                    "source": {"type":"string"},
+                    "dest": {"type":"string"},
+                    "keep": {"type":"string"},
+                    "snapshotName": {"type":"string"},
+                    "destContainer": {"type":"string"},
+                    "destRoot": {"type":"string"},
+                    "scheduleHours": {"type":"number"}
+                },
+                "required": ["ip", "source", "dest", "keep", "snapshotName", "destContainer", "destRoot"],
+                "additionalProperties": false
+            }
+        },
+        "timeout": {
+            "type": "object",
+            "properties": {
+                "": {"type":"string"},
+                "logVerbosity": {"type":"string"}
+            },
+            "required": ["logPath", "logVerbosity"],
+            "additionalProperties": false
+        }
+    }
+}
+

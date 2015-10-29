@@ -12,14 +12,36 @@ import psycopg2
 import sys
 from subprocess import Popen,PIPE
 from collections import defaultdict, OrderedDict
-from monitor.functions import client_pool_map, host_up, validate_yaml
-# Validating YAML and retrieving timeout setting. if there's no timeout setting we use a default value here.
-yaml_parsed = validate_yaml()
-try:
-    _timeouts = yaml_parsed["timeouts"]
-except:
-    # setting timeouts as integer. later our code checks whether _timeouts is a dict or integer.
-    _timeouts = 30
+from monitor.functions import client_pool_map, host_up
+#### Config
+# timeout for jobs (in days). marked as "OLD" if exceeded timeout.
+#_timeout = 60
+# format: days : [pool_name1, ...]
+_timeouts = { 90 : [ "Full-LT", "Incremental-LT"],
+              30 : [ "Full-ST", "Incremental-ST"],
+              60 : [ "Full-LT-Copies-01", "Incremental-LT-Copies-01"], # (11)
+             150 : [ "Full-LT-Copies-02", "Incremental-LT-Copies-02"] }
+
+
+#### Developer-Info
+# Pools:
+# Full-LT-Copies-01, Full-LT-Copies-02, Incremental-ST, Incremental-LT, Full-ST, Full-LT
+# abstracted: Shortterm, Longterm, Full Longterm Copy
+# Clients:
+# phserver01-fd, phpc01lin-fd, phlap01linw-fd, phlap01winw-fd, phlap02linw-fd, pharm01-fd, mapc01-fd
+# => List by clients and then present 2 latest job for each client pool within the client's table
+# data structure:
+# { a : { b : [1, 2, 3],
+#         c : [4, 5, 6],
+#         d : [7, 8, 9]
+#       },
+#  aa : { bb : [11, 22, 33],
+#         cc : [44, 55, 66]
+#       }
+# }
+# - no need to show type because pool name implies type
+# - no need to show 'T' for successful job, because only T is retrieved.
+# - no need to show/select full or inc type either, bcs pool name implies it too.
 
 def default_to_regular(d):
     if isinstance(d, defaultdict):
@@ -27,12 +49,11 @@ def default_to_regular(d):
     return d
 
 def monitor(request):
-    jobs_config, config_copy_dep = client_pool_map()
+    config_client_pool, config_copy_dep = client_pool_map()
     config_copy_dep = dict(config_copy_dep)
     con = None
     try:
         con = psycopg2.connect(database='bareos', user='bareos', host='phserver01')
-        con.set_session(readonly=True)
         cur = con.cursor()
         cur.execute("SELECT c.name, p.name, j.jobbytes, j.realendtime, j.starttime, j.jobfiles, f.fileset \
                      FROM client c \
@@ -90,31 +111,26 @@ def monitor(request):
     for key, li in config_copy_dep.items(): # (9)
         config_copy_dep[key] = sorted(li)
     config_copy_dep = OrderedDict(sorted(config_copy_dep.items())) # (10)
-
-    # adding "copy dependend pools" to "jobs config pools"
-    for cck, ccv in jobs_config.items():  # config client key/val
-        for cfk, cfv in ccv.items(): # config fileset
-            for cdk, cdv in config_copy_dep.items(): # config dep is just 1 level dict like so: {'Full-LT': ['Full-Copy-LT', 'Incremental-Copy-LT'], ...}
-                if cdk in cfv:  # cfv is list of pools associated to fileset key
-                    for cde in cdv: # copy dep element
-                        jobs_config[cck][cfk].add(cde)  # adding dep pool to list client_fileset pools.
-    for jck, jcv in jobs_config.items():
-        for cfk, cfv in jcv.items():
-            jobs_config[jck][cfk] = sorted(cfv)
-    jobs_config = OrderedDict(sorted(jobs_config.items())) # (8)
+    for cpk, cpv in config_client_pool.items():
+        for cdk, cdv in config_copy_dep.items():
+            if cdk in cpv:
+                for cdv2 in cdv:
+                    config_client_pool[cpk].add(cdv2)
+    for key, li in config_client_pool.items():
+        config_client_pool[key] = sorted(li)
+    config_client_pool = OrderedDict(sorted(config_client_pool.items())) # (8)
     hosts = dict(host_up())  # (5)
-    # setting missing pools to value 0.
     for jck, jcv in jobs.items(): # (4)
-        for cck, ccv in jobs_config.items():  # config_client_key/val
+        for cck, ccv in config_client_pool.items():  # config_client_key/val
             if jck == cck: # (7)
                 for jfk, jfv in jcv.items():
-                    for cfk, cfv in ccv.items():  # cfv is a list of all pools that "should" exist for each client's fileset.
-                        if jfk == cfk:  # if not checked that jfk == cfk, we would get pools marked as missing for filesets though they aren't.
-                            for cfe in cfv: # (1)
-                                if not cfe in jfv: # (2)
-                                    jobs[jck][jfk][cfe] = 0 # (6)
+                    logger.debug(jfv)
+                    for cce in ccv:  # (1)
+                        if cce in jfv: # (2)
+                            pass
+                        else:
+                            jobs[jck][jfk][cce] = 0 # (6)
     jobs = default_to_regular(jobs)  # (5)
-    # Sorting
     for jck, jcv in jobs.items():
         for jfk, jfv in jcv.items():
             jobs[jck][jfk] = OrderedDict( sorted( jobs[jck][jfk].items() ) )
@@ -124,10 +140,10 @@ def monitor(request):
 
 # Notes:
 # (0) jobs dict looks like: { client1 : { pool1 : [ jobbytes, realendtime, .. ], pool2 : [..] }, client2: { ... } }
-# (1) jcv looks as such: ['Full-LT', 'Full-LT-Copies-01', 'Full-LT-Copies-02', 'Incremental-LT', 'Incremental-LT-Copies-01', 'Incremental-LT-Copies-02']
+# (1) ccv looks as such: ['Full-LT', 'Full-LT-Copies-01', 'Full-LT-Copies-02', 'Incremental-LT', 'Incremental-LT-Copies-01', 'Incremental-LT-Copies-02']
 # (2) jfv looks like: defaultdict(None, {'Full-ST': [181, '03.10.15 16:30', 30, 116172, 0], 'Incremental-ST': [2, '24.10.15 18:19', 0, 78, 0]})
 # (3) a dictionary will always return keys/values in random order, that's why we have to use an "OrderedDict"
-# (4) comparing jobs_config with jobs dictionary in this view instead of in the template, that keeps the template cleaner and in general easier to write.
+# (4) comparing config_client_pool with jobs dictionary in this view instead of in the template, that keeps the template cleaner and in general easier to write.
 # (5) converting back to dict so template can print it
 # (6) set it to 0, not sure if it cascades with None
 # (7) if job client key (is) == config client key (should)
