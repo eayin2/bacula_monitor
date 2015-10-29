@@ -7,11 +7,9 @@ and thus checked for connectivity on port 9102, to indicate whether your client'
 ![Alt text](http://i.imgur.com/7p8jMAx.jpg "web-ui")
 
 ## Requirements:
-Django >= 1.8.4
-
-netcat
-
-psycopg2
+Django >= 1.8.4 <br />
+netcat <br />
+psycopg2__
 
 PyYAML
 
