@@ -1,0 +1,15 @@
+### Instructions for nginx+virtualenv+UWSGI
+
+- put uwsgi_params and bm_nginx.conf into your virtualenv.
+- make sure nginx includes /etc/nginx/sites-enabled/. Check /etc/nginx/nginx.conf for that. if it's
+  not there, then create the directory /etc/nginx/sites-enabled/ and add    
+      include /etc/nginx/sites-enabled/*;   
+  within the http { } configuration of /etc/nginx/nginx.conf.
+- configure bm_nginx.conf to your desire (e.g. custom webserver port)
+- create a symlink from /YOUR_ENV_PATH/bm_nginx.conf to /etc/nginx/sites-enabled/.
+      ln -s /YOUR_ENV_PATH/bm_nginx.conf /YOUR_ENV_PATH/bm_nginx.conf
+- put uwsgi.ini inside bacula_monitor's folder. e.g. /YOUR_ENV_PATH/bacula_monitor/uwsgi.ini
+- configure uwsgi.ini with your settings
+- create log uwsgi folder: mkdir -p /var/log/uwsgi/
+- run bm_wsgi.ini like so: 
+      uwsgi --ini uwsgi.ini

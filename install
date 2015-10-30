@@ -1,4 +1,11 @@
-# pypa requirements (install with pip3)
-PyYAML
-voluptuous
+# Requirements (install preferably from pypa with pip/pip3 into a virtualenv)
+Django >= 1.8.4 
+netcat 
+psycopg2 
+PyYAML 
+voluptuous 
+
+Optionally (recommended): 
+virtualenv 
+
 

@@ -22,6 +22,7 @@ def validate_yaml():
     schema = Schema({
         Required('bacula_config_path'): str,
         Required('port'): int,
+        "virtualenv": str,
         'timeouts': Schema({int: [str]}) # if not timeouts set, use default value
     })
     try:
