@@ -61,7 +61,7 @@ def config_values(d):
     ibp = None
     np = None
     ty = None
-    d = {k.lower():v for k,v in d.iteritems()}
+    d = {k.lower():v for k,v in iteritems(d)}
     try:
         client = d[ "client"]
     except:
@@ -143,7 +143,7 @@ def parse_bacula(lines):
             key, value = m.groups()
             obj[key.strip()] = value.rstrip(';')
             continue
-    parsed = [{key.lower():val.replace('"',"") for key, val in dict.iteritems()} for dict in parsed]  # Removing any quote signs from values and applying lower() to all keys.
+    parsed = [{key.lower():val.replace('"',"") for key, val in iteritems(dict)} for dict in parsed]  # Removing any quote signs from values and applying lower() to all keys.
     return parsed
 
 def client_pool_map():
@@ -159,14 +159,14 @@ def client_pool_map():
         for d in parsed_conf:
             if d["resource"].lower() == "job":
                 done = False
-                d = {k.lower():v for k,v in d.iteritems()}
+                d = {k.lower():v for k,v in iteritems(d)}
                 cvd = config_values(d) # config value dict
                 if  "jobdefs" in d:  # (2)
                     jobdef_name = d["jobdefs"].lower()
                     jcd = jobdefs_conf_values(jobdef_name)  # jobdefs config dict
                 else:
                     jcd = config_values(d)  # if no jobdefs then set jcd also to config values and when its compared to cvd then it doesnt differentiate from cvl.
-                cvd.update({jck:jcv for jck, jcv in jcd.iteritems() if jcv})  # jobdefs config key (its just temp value dict, no nested things here)
+                cvd.update({jck:jcv for jck, jcv in iteritems(jcd) if jcv})  # jobdefs config key (its just temp value dict, no nested things here)
                 if cvd["fileset"] == None and cvd['type'].lower() == "copy":
                     config_copy_dep[d["pool"]].add(cvd["next pool"])  # above we added also next pool (if available) to the dict cvd
                     continue  # because we dont want fileset None-type in our jobs_config.
@@ -194,7 +194,7 @@ def hosts():
 def host_up():
     """Checks if bacula's file daemon port is open and returns dictionary of available hosts."""
     _hosts = hosts()
-    for hk, hv in _hosts.iteritems():
+    for hk, hv in iteritems(_hosts):
         p2 = Popen([ "/usr/bin/netcat", "-z", "-v", "-w", "2", list(hv)[0], port ], stdout=PIPE, stderr=PIPE, universal_newlines=True)
         out, err = p2.communicate()
         if "succeeded" in err:

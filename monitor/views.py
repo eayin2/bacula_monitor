@@ -23,7 +23,7 @@ except:
 
 def default_to_regular(d):
     if isinstance(d, defaultdict):
-        d = {k: default_to_regular(v) for k, v in d.iteritems()}
+        d = {k: default_to_regular(v) for k, v in iteritems(d)}
     return d
 
 def monitor(request):
@@ -74,7 +74,7 @@ def monitor(request):
                 else:
                     timeout = 0
             elif isinstance(_timeouts, dict):
-                for tk, tv in _timeouts.iteritems():
+                for tk, tv in iteritems(_timeouts):
                     if pool in tv:  # checking if pool is in tv (list of pools from _timeouts)
                         timeout_max = datetime.timedelta(days=tk)
                         if ( current_time - realendtime ) > timeout_max:
@@ -87,38 +87,38 @@ def monitor(request):
     except ValueError as err:
         logger.debug(err)
         logger.debug("Error in view.")
-    for key, li in config_copy_dep.iteritems(): # (9)
+    for key, li in iteritems(config_copy_dep): # (9)
         config_copy_dep[key] = sorted(li)
-    config_copy_dep = OrderedDict(sorted(config_copy_dep.iteritems())) # (10)
+    config_copy_dep = OrderedDict(sorted(iteritems(config_copy_dep))) # (10)
 
     # adding "copy dependend pools" to "jobs config pools"
-    for cck, ccv in jobs_config.iteritems():  # config client key/val
-        for cfk, cfv in ccv.iteritems(): # config fileset
-            for cdk, cdv in config_copy_dep.iteritems(): # config dep is just 1 level dict like so: {'Full-LT': ['Full-Copy-LT', 'Incremental-Copy-LT'], ...}
+    for cck, ccv in iteritems(jobs_config):  # config client key/val
+        for cfk, cfv in iteritems(ccv): # config fileset
+            for cdk, cdv in iteritems(config_copy_dep): # config dep is just 1 level dict like so: {'Full-LT': ['Full-Copy-LT', 'Incremental-Copy-LT'], ...}
                 if cdk in cfv:  # cfv is list of pools associated to fileset key
                     for cde in cdv: # copy dep element
                         jobs_config[cck][cfk].add(cde)  # adding dep pool to list client_fileset pools.
-    for jck, jcv in jobs_config.iteritems():
-        for cfk, cfv in jcv.iteritems():
+    for jck, jcv in iteritems(jobs_config):
+        for cfk, cfv in iteritems(jcv):
             jobs_config[jck][cfk] = sorted(cfv)
-    jobs_config = OrderedDict(sorted(jobs_config.iteritems())) # (8)
+    jobs_config = OrderedDict(sorted(iteritems(jobs_config))) # (8)
     hosts = dict(host_up())  # (5)
     # setting missing pools to value 0.
-    for jck, jcv in jobs.iteritems(): # (4)
-        for cck, ccv in jobs_config.iteritems():  # config_client_key/val
+    for jck, jcv in iteritems(jobs): # (4)
+        for cck, ccv in iteritems(jobs_config):  # config_client_key/val
             if jck == cck: # (7)
-                for jfk, jfv in jcv.iteritems():
-                    for cfk, cfv in ccv.iteritems():  # cfv is a list of all pools that "should" exist for each client's fileset.
+                for jfk, jfv in iteritems(jcv):
+                    for cfk, cfv in iteritems(ccv):  # cfv is a list of all pools that "should" exist for each client's fileset.
                         if jfk == cfk:  # if not checked that jfk == cfk, we would get pools marked as missing for filesets though they aren't.
                             for cfe in cfv: # (1)
                                 if not cfe in jfv: # (2)
                                     jobs[jck][jfk][cfe] = 0 # (6)
     jobs = default_to_regular(jobs)  # (5)
     # Sorting
-    for jck, jcv in jobs.iteritems():
-        for jfk, jfv in jcv.iteritems():
-            jobs[jck][jfk] = OrderedDict( sorted( jobs[jck][jfk].iteritems() ) )
-    jobs = OrderedDict( sorted( jobs.iteritems() ) )  # (3)
+    for jck, jcv in iteritems(jobs):
+        for jfk, jfv in iteritems(jcv):
+            jobs[jck][jfk] = OrderedDict(sorted(iteritems(jobs[jck][jfk])))
+    jobs = OrderedDict(sorted(iteritems(jobs)))  # (3)
     return render_to_response('monitor/index.html', {'jobs' : jobs, 'hosts' : hosts }, context_instance=RequestContext(request))
 
 
