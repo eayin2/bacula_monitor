@@ -13,7 +13,7 @@ netcat <br />
 psycopg2 <br />
 PyYAML <br />
 voluptuous <br />
-
+nginx (with uwsgi) or apache2 (with mod_wsgi) <br />
 Optionally (recommended): <br />
 virtualenv <br />
 
@@ -26,6 +26,9 @@ If you decide to use virtualenv. Here's one info link:<br />
 https://www.jeffknupp.com/blog/2012/02/09/starting-a-django-project-the-right-way/ <br />
 See the requirements above, that have to be installed for bacula_monitor to work.
 
+mkdir -p /var/log/django/
+# e.g. user wwwrun or maybe http, depending on your distro webserver package/setup.
+chown -R wwwrun /var/log/django/
 
 ## Configuration
 See bm.conf example config file for available settings.

@@ -136,7 +136,7 @@ LOGGING = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': '/www/django_bacula_monitor.log',
+            'filename': '/var/log/django/bacula_monitor.log',
         },
     },
     'loggers': {
