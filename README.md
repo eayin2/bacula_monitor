@@ -27,8 +27,8 @@ https://www.jeffknupp.com/blog/2012/02/09/starting-a-django-project-the-right-wa
 See the requirements above, that have to be installed for bacula_monitor to work.
 
 mkdir -p /var/log/django/
-# e.g. user wwwrun or maybe http, depending on your distro webserver package/setup.
 chown -R wwwrun /var/log/django/
+(where wwwrun is the user who runs wsgi (depending on your distro webserver package/setup it might be wwwrun, http or another user))
 
 ## Configuration
 See bm.conf example config file for available settings.
