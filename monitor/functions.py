@@ -45,52 +45,16 @@ def bacula_config_files():
             files.append(os.path.join(root, filename))
     return files
 
-def handleError(function):
-    def handleProblems():
-        try:
-            function()
-        except Exception:
-            pass
-    return handleProblems
-
 def config_values(d):
-    """ jobdefs uses this function and its dict looks like {"thing": "jobdefs", ... } and jobs dict looks like {"thing": "job",... } """
-    client = None
-    fileset = None
-    pool = None
-    fbp = None
-    ibp = None
-    np = None
-    ty = None
+    """ tries to get values for mulitple keys and sets value None if key is not existent. keys and values are packed and returns as dict."""
     d = {k.lower():v for k,v in iteritems(d)}
-    try:
-        client = d[ "client"]
-    except:
-        pass
-    try:
-        fileset = d["fileset"]
-    except:
-        pass
-    try:
-        pool = d["pool"]
-    except:
-        pass
-    try:
-        fbp = d["full backup pool"]
-    except:
-        pass
-    try:
-        ibp = d["incremental backup pool"]
-    except:
-        pass
-    try:
-        np = d["next pool"]
-    except:
-        pass
-    try:
-        ty = d["type"]
-    except:
-        pass
+    client = d.get("client", None)
+    fileset = d.get("fileset", None)
+    pool = d.get("pool", None)
+    fbp = d.get("full backup pool", None)
+    ibp = d.get("incremental backup pool", None)
+    np = d.get("next pool", None)
+    ty = d.get("type", None)
     cvl = {"client": client,
            "fileset": fileset,
            "pool": pool,
@@ -101,7 +65,7 @@ def config_values(d):
     return cvl
 
 def jobdefs_conf_values(jobdef_name):
-    """ parses jobdefs.conf and returns values for given keys packed in a dictionary. """
+    """ parses jobdefs.conf and returns values for keys defined in config_values()."""
     files = bacula_config_files()
     for file in files:
         with open (file, "r") as myfile:
@@ -127,7 +91,7 @@ def parse_bacula(lines):
             # Start a new object
             if obj is not None:
                 return None  # if file is nested, than skip it. (e.g. filesets.conf is nested, and we dont want to parse fileset resources.)
-#                raise Exception("Nested objects!")
+                # raise Exception("Nested objects!")
             obj = {'resource': m.group(1)}
             parsed.append(obj)
             continue
@@ -148,7 +112,7 @@ def parse_bacula(lines):
     return parsed
 
 def client_pool_map():
-    """ returns a dictionary of all pools that a client is associated to in the bacula jobs config."""
+    """ returns a dictionary of all pools that a client is associated to in the bacula jobs config and returns another dict containing all copy pool dependencies."""
     files = bacula_config_files()
     jobs_config = defaultdict(lambda: defaultdict(set))
     config_copy_dep = defaultdict(set)
@@ -199,9 +163,9 @@ def host_up():
         p2 = Popen([ "/usr/bin/netcat", "-z", "-v", "-w", "2", list(hv)[0], port ], stdout=PIPE, stderr=PIPE, universal_newlines=True)
         out, err = p2.communicate()
         if "succeeded" in err:
-            _hosts[ hk ].add(1)
+            _hosts[hk].add(1)
         else:
-            _hosts[ hk ].add(0)
+            _hosts[hk].add(0)
     return _hosts
 
 # (1) don't sort the dictionaries here yet, because we still need the set() values.

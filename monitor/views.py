@@ -90,7 +90,6 @@ def monitor(request):
     for key, li in iteritems(config_copy_dep): # (9)
         config_copy_dep[key] = sorted(li)
     config_copy_dep = OrderedDict(sorted(iteritems(config_copy_dep))) # (10)
-
     # adding "copy dependend pools" to "jobs config pools"
     for cck, ccv in iteritems(jobs_config):  # config client key/val
         for cfk, cfv in iteritems(ccv): # config fileset
