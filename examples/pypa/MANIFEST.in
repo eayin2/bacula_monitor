@@ -1,0 +1,3 @@
+recursive-include bacula_monitor *.html *.css *.conf *.md
+global-exclude *.pyc
+global-exclude __pycache__ 

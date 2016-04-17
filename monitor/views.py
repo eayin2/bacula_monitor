@@ -26,6 +26,45 @@ def default_to_regular(d):
         d = {k: default_to_regular(v) for k, v in iteritems(d)}
     return d
 
+def all_client_jobs(request):
+    """ This view method is only sketched yet and not completed yet. It should list all jobs for a specific client and fileset in a new view/page.
+        The client and fileset name should be retrieved in the view by using a post form in the client_fileset box on the website."""
+    con = None
+    try:
+        con = psycopg2.connect(database='bareos', user='bareos', host='phserver01')
+        con.set_session(readonly=True)
+        cur = con.cursor()
+        cur.execute("SELECT c.name, p.name, j.jobbytes, j.realendtime, j.starttime, j.jobfiles, f.fileset \
+                     FROM client c, job j, fileset f, pool p \
+                     WHERE c.name='phpc01lin-fd' AND f.fileset='Linux All' AND j.jobstatus IN ('T', 'W') AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') \
+                     AND j.clientid=c.clientid AND j.poolid=p.poolid AND j.filesetid=f.filesetid;")
+        tuples = cur.fetchall()
+        jobs = defaultdict(lambda: defaultdict(defaultdict))
+        clients_pools_dict = defaultdict(list)  # (0)
+        for t in tuples:
+            client = t[0]
+            fileset = t[6]
+            pool = t[1]
+            pool_sub_dict = defaultdict(list)
+            pool_list = list()
+            jobbytes = t[2]
+            realendtime = t[3]
+            starttime = t[4]
+            try:
+                duration = realendtime - starttime
+            except:
+                continue
+            seconds = duration.total_seconds()
+            minutes = int((seconds % 3600) // 60)
+            endtime = realendtime.strftime("%d.%m.%y %H:%M")
+            # grob aufrunden
+            jobgigabytes = int(jobbytes/1000000000)
+            current_time = datetime.datetime.now()
+    except:
+        pass
+    return render_to_response('monitor/index.html', {'jobs' : jobs, 'hosts' : hosts }, context_instance=RequestContext(request))
+
+
 def monitor(request):
     jobs_config, config_copy_dep = client_pool_map()
     config_copy_dep = dict(config_copy_dep)
