@@ -1,18 +1,21 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.template import RequestContext
-from django.shortcuts import render_to_response
 import logging
-logger = logging.getLogger(__name__)
 import datetime
 import re
 import os
-import psycopg2
 import sys
 from subprocess import Popen,PIPE
 from collections import defaultdict, OrderedDict
-from monitor.functions import client_pool_map, host_up, validate_yaml
 from six import iteritems
+
+import psycopg2
+from django.shortcuts import render_to_response
+
+from monitor.functions import client_pool_map, host_up, validate_yaml, format_exception
+
+logger = logging.getLogger(__name__)
 # Validating YAML and retrieving timeout setting. if there's no timeout setting we use a default value here.
 yaml_parsed = validate_yaml()
 try:
@@ -21,38 +24,49 @@ except:
     # setting timeouts as integer. later our code checks whether _timeouts is a dict or integer.
     _timeouts = 30
 
+
 def default_to_regular(d):
     if isinstance(d, defaultdict):
         d = {k: default_to_regular(v) for k, v in iteritems(d)}
     return d
 
-def all_client_jobs(request):
+
+def all_backups(request):
     """ This view method is only sketched yet and not completed yet. It should list all jobs for a specific client and fileset in a new view/page.
         The client and fileset name should be retrieved in the view by using a post form in the client_fileset box on the website."""
     con = None
+    jobs = defaultdict(lambda: defaultdict(defaultdict))
+    hosts = dict(host_up())  # (5)
     try:
         con = psycopg2.connect(database='bareos', user='bareos', host='phserver01')
         con.set_session(readonly=True)
         cur = con.cursor()
-        cur.execute("SELECT c.name, p.name, j.jobbytes, j.realendtime, j.starttime, j.jobfiles, f.fileset \
-                     FROM client c, job j, fileset f, pool p \
-                     WHERE c.name='phpc01lin-fd' AND f.fileset='Linux All' AND j.jobstatus IN ('T', 'W') AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') \
-                     AND j.clientid=c.clientid AND j.poolid=p.poolid AND j.filesetid=f.filesetid;")
+        cur.execute("SELECT c.name, p.name, j.jobbytes, j.realendtime, j.starttime, j.jobfiles, f.fileset, \
+                     m.volumename, j.jobid \
+                     FROM client c, job j, fileset f, pool p, media m, jobmedia jm \
+                     WHERE j.jobstatus IN ('T', 'W') AND j.level IN ('F', 'I', 'D') AND j.type IN ('B', 'C') \
+                     AND j.clientid=c.clientid AND j.poolid=p.poolid AND j.filesetid=f.filesetid AND \
+                     jm.mediaid=m.mediaid AND jm.jobid=j.jobid;")
         tuples = cur.fetchall()
-        jobs = defaultdict(lambda: defaultdict(defaultdict))
-        clients_pools_dict = defaultdict(list)  # (0)
+# tuples: [('phserver01-fd', 'Incremental-ST', 5128714372, datetime.datetime(2016, 4, 1, 17, 1, 37),
+# datetime.datetime(2016, 4, 1, 17, 0), 239, 'Linux All phserver01', 'Incremental-ST-0071', 2298), .....]
+        total_size = float()
         for t in tuples:
             client = t[0]
-            fileset = t[6]
             pool = t[1]
-            pool_sub_dict = defaultdict(list)
-            pool_list = list()
             jobbytes = t[2]
             realendtime = t[3]
             starttime = t[4]
+            jobfiles = t[5]
+            fileset = t[6]
+            volname = t[7]
+            jobid = t[8]
+            pool_sub_dict = defaultdict(list)
+            pool_list = list()
             try:
                 duration = realendtime - starttime
-            except:
+            except Exception as e:
+                logger.debug(format_exception(e))
                 continue
             seconds = duration.total_seconds()
             minutes = int((seconds % 3600) // 60)
@@ -60,9 +74,30 @@ def all_client_jobs(request):
             # grob aufrunden
             jobgigabytes = int(jobbytes/1000000000)
             current_time = datetime.datetime.now()
-    except:
+            pool_list = (jobid, jobgigabytes, endtime, minutes, jobfiles, volname)
+            try:
+                j = jobs[client][fileset][pool]
+            except:
+               jobs[client][fileset][pool] = set()
+               j = jobs[client][fileset][pool]
+            j.add(pool_list)
+    except Exception as e:
+        logger.debug(format_exception(e))
         pass
-    return render_to_response('monitor/index.html', {'jobs' : jobs, 'hosts' : hosts }, context_instance=RequestContext(request))
+    jobs = default_to_regular(jobs)  # (5)
+    for jck, jcv in iteritems(jobs):
+        for jfk, jfv in iteritems(jcv):
+            jobs[jck][jfk] = OrderedDict(sorted(iteritems(jobs[jck][jfk])))
+            for jpk, jpv in iteritems(jfv):
+                for jpe in jpv:
+                    logger.debug(jpe)
+                    # outputs: (92, 85, '22.05.15 21:23', 16, 384467, 'Full-LT-0007')
+                    total_size += jpe[1]
+                jobs[jck][jfk][jpk] = sorted(jpv)
+    jobs = OrderedDict(sorted(iteritems(jobs)))
+    logger.debug(jobs)
+    return render_to_response('monitor/all_backups.html', {'jobs' : jobs, 'hosts' : hosts, 'total_size': total_size },
+                              context_instance=RequestContext(request))
 
 
 def monitor(request):
@@ -157,7 +192,8 @@ def monitor(request):
         for jfk, jfv in iteritems(jcv):
             jobs[jck][jfk] = OrderedDict(sorted(iteritems(jobs[jck][jfk])))
     jobs = OrderedDict(sorted(iteritems(jobs)))  # (3)
-    return render_to_response('monitor/index.html', {'jobs' : jobs, 'hosts' : hosts }, context_instance=RequestContext(request))
+    return render_to_response('monitor/recent_backups.html', {'jobs' : jobs, 'hosts' : hosts },
+           context_instance=RequestContext(request))
 
 
 # Notes:

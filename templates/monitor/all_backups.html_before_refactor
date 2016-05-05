@@ -1,0 +1,66 @@
+{% extends "monitor/index.html" %}
+{% load monitor_tags %}
+
+{% block content %}
+  <span>Total size (TB): {{ total_size|gb_to_tb }}</span>
+  <div class="c_flex">
+  {% for jck, jcv in jobs.items %}          {% comment %} for job_client_key/val in jobs {% endcomment %}
+  {% for jfk, jfv in jcv.items %}           {% comment %} for job_fileset_key/val in job_client_val.{% endcomment %}
+    <section class="c">
+      {% for hkey, hvalue in hosts.items %}         {% comment %} for host_key/val in hosts {% endcomment %}
+      {% if jck == hkey %}
+      {% for el in hvalue|slice:"1:" %}
+      {% if el == 1 %}
+      <h4 class="green">{{ jck }} - {{ jfk }}</h4>
+      {% elif el == 0 %}
+      <h4 class="red">{{ jck }} - {{ jfk }}</h4>
+      {% endif %}
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+      <table>
+        <tr>
+          <th>Pool</th>            {% comment %} jpk {% endcomment %}
+          <th>Jobid</th>
+          <th>Size (GB)</th>
+          <th>Ended</th>
+          <th>Duration (mins)</th>
+          <th>Files (#)</th>
+          <th>Volume name</th>
+        </tr>
+        {% for jpk, jpv in jfv.items %}             {% comment %} for job_pool_key/val in job_fileset_val {% endcomment %}
+        <tr>
+          {% for jpe in jpv %}
+          <td><span>{{ jpk }}</span></td>
+          {% for jpc in jpe %}
+          <td><span>{{ jpc }}</span></td>
+          {% endfor %}
+        </tr>
+          {% endfor %}
+        {% endfor %}
+      </table>
+    </section>
+  {% endfor %}
+  {% endfor %}
+  </div> <!-- <div class="c_flex"> -->
+  <p>Raw output:</p>
+  {% for jck, jcv in jobs.items %}          {% comment %} for job_client_key/val in jobs {% endcomment %}
+  {% for jfk, jfv in jcv.items %}           {% comment %} for job_fileset_key/val in job_client_val.{% endcomment %}
+  {% for jpk, jpv in jfv.items %}             {% comment %} for job_pool_key/val in job_fileset_val {% endcomment %}
+  {% for jpe in jpv %}
+  {{ jck }} {{ jfk }} {{ jpk }}
+  {% for jpc in jpe %}
+  {{ jpc }}
+  {% endfor %}
+  <br>
+  {% endfor %}
+  {% endfor %}
+  {% endfor %}
+  {% endfor %}
+
+{% endblock content %}
+{% comment %} Example dictionaries:
+jobs:                 { phlap01linw-fd : { Full-LT-Copies-02: [18, '22.05.15 02:33', 21, 255493], Full-LT: [18, '22.03.15 01:10', 51, 26593], } }
+client_pool_dict:     {'"phlap01winw-fd"': {'Incremental-ST', 'Incremental-LT', 'Full-ST', 'Full-LT'}, 'phserver01-fd': {'Incremental-ST', 'Full-ST'},
+                       '"phlap01linw-fd"': {'Incremental-ST', 'Incremental-LT', 'Full-ST', 'Full-LT'}}
+copy_dependency_dict: {'Incremental-LT': {'Incremental-LT-Copies-01', 'Incremental-LT-Copies-02'}, 'Full-LT': {'Full-LT-Copies-02', 'Full-LT-Copies-01'}} {% endcomment %}

@@ -85,3 +85,20 @@ h2 {
   color: yellow;}
 .red {
   color: red;}
+
+.navigation {
+  font-size: 100%;
+  color: white;
+  font-weight: 600;
+}
+
+.navigation li {
+  padding-right: 10px;
+}
+.navigation a:hover {
+  color: grey;
+  font-weight: 800;
+}
+.navigation a:visited {
+  color: white;
+}

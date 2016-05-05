@@ -1,0 +1,4 @@
+If hosts don't show up, this probably means bacula_monitor can't read the configuration files, so
+make sure you do:
+chmod -R a+r /etc/bacula
+chmod a+x /etc/bacula

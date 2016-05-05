@@ -2,18 +2,35 @@
 # -*- coding: utf-8 -*-
 import re
 import os
-import psycopg2
 import sys
-from subprocess import Popen,PIPE
-import fnmatch
 import os
-from collections import defaultdict
 import logging
-logger = logging.getLogger(__name__)
+import traceback
+from subprocess import Popen,PIPE
+from collections import defaultdict
+
+import fnmatch
 import yaml
-from voluptuous import Schema, Required, All, Length, Range, MultipleInvalid
+import psycopg2
 from six import iteritems
-#### Validating Config
+from voluptuous import Schema, Required, All, Length, Range, MultipleInvalid
+
+logger = logging.getLogger(__name__)
+
+
+def format_exception(e):
+    """Usage: except Exception as e:
+                  log.error(format_exception(e)) """
+    exception_list = traceback.format_stack()
+    exception_list = exception_list[:-2]
+    exception_list.extend(traceback.format_tb(sys.exc_info()[2]))
+    exception_list.extend(traceback.format_exception_only(sys.exc_info()[0], sys.exc_info()[1]))
+    exception_str = "Traceback (most recent call last):\n"
+    exception_str += "".join(exception_list)
+    exception_str = exception_str[:-1]  # Removing the last \n
+    return exception_str
+
+
 def validate_yaml():
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     logger.debug(BASE_DIR)
@@ -35,7 +52,7 @@ yaml_parsed = validate_yaml()
 bacula_config_path = yaml_parsed["bacula_config_path"]
 port = str(yaml_parsed["port"])
 
-#### Functions
+
 def bacula_config_files():
     """ returns all files found in bacula_config_path recursively. """
     files = []
@@ -77,6 +94,7 @@ def jobdefs_conf_values(jobdef_name):
                 jcd = config_values(d)
     return jcd   # job config dict
 
+
 def parse_bacula(lines):
     """ can parse bacula configs and returns a list of each config segment packed in one dictionary. """
     parsed = []
@@ -111,6 +129,7 @@ def parse_bacula(lines):
     parsed = [{key.lower():val.replace('"',"") for key, val in iteritems(dict)} for dict in parsed]  # Removing any quote signs from values and applying lower() to all keys.
     return parsed
 
+
 def client_pool_map():
     """ returns a dictionary of all pools that a client is associated to in the bacula jobs config and returns another dict containing all copy pool dependencies."""
     files = bacula_config_files()
@@ -142,6 +161,7 @@ def client_pool_map():
     logger.debug(config_copy_dep)
     return jobs_config, config_copy_dep  # (1)
 
+
 def hosts():
     """Searches for client resources, parses for address+name and then returns them as dict."""
     files = bacula_config_files()
@@ -155,6 +175,7 @@ def hosts():
             if d["resource"].lower() == "client":
                 _hosts[d['name']].add(d['address'])
     return _hosts
+
 
 def host_up():
     """Checks if bacula's file daemon port is open and returns dictionary of available hosts."""
