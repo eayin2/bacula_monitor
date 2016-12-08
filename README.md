@@ -1,3 +1,11 @@
+```diff
+- DEPRECATED:
+I recommend to use `bacula_stats` (CLI version of bacula_monitor) instead.
+With bacula_monitor we had to `chown a+rx on /etc/bacula` our config files, which is a security risk, considering an attacker who managed to gain access to the user `http` could've read the secret bacula key. There's a workaround to not change bacula config files' permission (populating to an intermediate DB by a root daemon), but using the CLI version is advantageous, because it's simpler, easier to deploy and distribute and securer.
+```
+
+
+
 # Bacula_monitor
 Displays most recent successful job for each client's fileset pools on one page and additionally compares
 it to your configured jobs to show by markup, whether a backup is missing. Moreover you can configure for
